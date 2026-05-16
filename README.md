@@ -1,12 +1,10 @@
 # Ghostbench
 
-Ghostbench is a local-first TypeScript CLI for evaluating repo-aware coding agents before they make changes.
+Ghostbench is a local-first TypeScript CLI for assessing vibe-coded application repositories.
 
-It asks one question: did the agent demonstrate repo understanding, or did it produce a plausible generic plan?
+It answers one question for an app owner: is this repository ready to ship, hand off, or keep developing with agents?
 
-The default workflow runs entirely offline. It evaluates markdown fixture responses against JSON eval cases, uses a deterministic heuristic judge, prints a console summary, and writes a markdown report.
-
-Ghostbench can also generate a live Agent Response with OpenAI when explicitly requested. Provider-generated responses are judged by the same deterministic heuristic judge as fixture responses.
+The default workflow is deterministic and offline. Ghostbench scans a repository, detects framework signals, inventories package scripts, runs only the execution checks allowed by the selected policy, and writes a readiness report with evidence, concerns, blocking concerns, dimension scores, and remediation guidance.
 
 ## Install
 
@@ -14,108 +12,110 @@ Ghostbench can also generate a live Agent Response with OpenAI when explicitly r
 pnpm install
 ```
 
-## Run Sample Cases
+## Assess A Repository
+
+Assess a repository with an inline app brief:
 
 ```bash
-pnpm ghostbench run cases/bagshui-layout.json
-pnpm ghostbench compare cases/bagshui-layout.json
-pnpm ghostbench run cases/nightcrawler-template-update.json
+pnpm ghostbench assess ./fixture-repos/coherent-vite-app --brief "Inventory Desk is an operations dashboard for tracking low-stock items, supplier status, and reorder decisions."
 ```
 
-If a sample target repository is not present next to this repo, Ghostbench continues with a warning. Missing repo context is part of what the fixtures are meant to exercise.
-
-## Generate An OpenAI Agent Response
-
-Fixture responses remain enabled in provider mode. The generated Agent Response is added to the run and appears in the same report and ranking:
+Assess with a reusable case file:
 
 ```bash
-OPENAI_API_KEY=... pnpm ghostbench run cases/bagshui-layout.json --provider openai --model gpt-5.1
-OPENAI_API_KEY=... pnpm ghostbench compare cases/bagshui-layout.json --provider openai --model gpt-5.1
+pnpm ghostbench assess . --case cases/inventory-desk-readiness.json
 ```
 
-OpenAI provider mode uses the bounded repo context scanned by Ghostbench and fails clearly if `OPENAI_API_KEY` is missing or the API request fails. The provider is only for Agent Response generation; judging remains deterministic and local.
-
-## Add A Case
-
-Create a starter case:
+Use `--policy inspect` for static-only evaluation. Use `--policy check` to run declared typecheck, build, and test scripts only when dependencies are already present:
 
 ```bash
-pnpm ghostbench init-case
+pnpm ghostbench assess ./fixture-repos/coherent-vite-app --case cases/inventory-desk-readiness.json --policy check
 ```
 
-Create a starter case for a GitHub repository:
+`sandboxed` and `trusted` policies are reserved terms in the MVP; they do not yet install dependencies or launch dev servers.
 
-```bash
-pnpm ghostbench init-case --repo-url https://github.com/owner/repo.git --repo-ref main --id my-case --title "My repo eval"
-```
+## Readiness Dimensions
 
-For remote cases, `init-case` clones or updates the repo in the user cache, scans the bounded repo context, suggests a small `expectedFiles` list, and creates two placeholder fixture responses under `fixtures/`.
+Ghostbench scores six dimensions:
 
-Eval case paths are resolved relative to the case file. MVP cases reference local fixture-backed agent responses:
+- Product Coherence
+- Runtime Health
+- UX Completeness
+- Maintainability
+- Safety
+- Agent Readiness
+
+Verdicts are `ready`, `conditionally-ready`, `not-ready`, or `unknown`.
+
+## App Briefs And Cases
+
+The app brief describes the product intent and user expectations. It can come from:
+
+- `--brief <text>`
+- `--brief-file <path>`
+- `--case <casePath>`
+
+Assessment cases are reusable JSON files:
 
 ```json
 {
-  "id": "my-case",
-  "title": "My repo-aware eval",
-  "repoPath": "../my-target-repo",
-  "task": "Answer a realistic repository task.",
-  "expectedFiles": ["src/relevant-area"],
-  "rubric": [
-    {
-      "id": "grounded-plan",
-      "description": "Identifies task-relevant repository areas and proposes a bounded plan",
-      "weight": 3
-    }
-  ],
-  "responses": [
-    {
-      "name": "Candidate response",
-      "fixturePath": "../fixtures/candidate-response.md"
-    }
-  ]
+  "id": "inventory-desk-readiness",
+  "title": "Inventory Desk readiness assessment",
+  "repoPath": "../fixture-repos/coherent-vite-app",
+  "appBrief": "Inventory Desk is an operations dashboard for tracking low-stock items, reviewing supplier status, and preparing reorder decisions.",
+  "expectedAreas": ["inventory summary", "supplier status", "reorder decisions", "src"]
 }
 ```
 
-`expectedFiles` are advisory. They help judge repo understanding, but they are not hidden gold labels.
+`expectedAreas` are advisory. They can name repository paths, app surfaces, workflows, or configuration areas, and they are not hidden gold labels.
 
-`repoPath` points to the target repository being evaluated. It can point at an existing local repository outside Ghostbench, such as a sibling checkout under `~/Code`. Ghostbench does not copy or vendor target repositories into this project.
+## Execution Policies
 
-You can also point a run at a GitHub repository:
+- `inspect`: scan repository contents without running commands.
+- `check`: run declared `typecheck`, `build`, and `test` scripts only if `node_modules` already exists.
+- `sandboxed`: reserved for future isolated install/run support.
+- `trusted`: reserved for future explicit in-repository install/run support.
 
-```bash
-pnpm ghostbench run cases/my-case.json --repo-url https://github.com/owner/repo.git --repo-ref main
-```
-
-Or put the remote source in the case file:
-
-```json
-{
-  "repoUrl": "https://github.com/owner/repo.git",
-  "repoRef": "main"
-}
-```
-
-`repoRef` is optional, but pinning a branch, tag, or commit makes reports easier to interpret. GitHub repositories are cloned or updated into the user cache outside the Ghostbench checkout, then scanned with the same bounded repo-context scanner as local repositories.
+Ghostbench does not call external APIs or install dependencies during the default readiness workflow.
 
 ## Reports
 
 Reports are written to:
 
 ```text
-reports/{caseId}-{timestamp}.md
+reports/{assessmentId}-{timestamp}.md
 ```
 
-Each report includes the task, repo context summary, warnings, expected files, response names, response sources, per-rubric scores, evidence, concerns, and ranking when multiple responses are evaluated.
+Each report includes the app brief, repo summary, warnings, framework signals, script inventory, execution checks, dimension scores, blocking concerns, evidence, concerns, and remediation guidance.
 
 Generated reports are gitignored by default.
 
+## Fixture Repositories
+
+The repo includes deterministic local fixture repositories:
+
+- `fixture-repos/coherent-vite-app`
+- `fixture-repos/messy-vibe-app`
+
+These let Ghostbench exercise readiness assessment without depending on external repositories.
+
+## Legacy Agent-Response Workflow
+
+The older repo-understanding workflow is still available while the pivot lands:
+
+```bash
+pnpm ghostbench run cases/bagshui-layout.json
+pnpm ghostbench compare cases/bagshui-layout.json
+```
+
+That workflow evaluates fixture agent responses. New product work should target `assess`.
+
 ## Roadmap
 
-- Anthropic provider adapter
-- LLM-as-judge
-- MCP server tools:
-  - `run_eval_case`
-  - `compare_model_runs`
-  - `inspect_failure`
-- GitHub PR comment mode
-- Grill mode that asks follow-up questions before scoring
+- Sandboxed and trusted execution policies
+- Optional provider-assisted assessment
+- Interactive browser checks
+- Patch generation as a separate capability
+- Multi-repository comparison
+- Additional app stacks beyond Node and TypeScript
+- MCP server tools for readiness assessment and failure inspection

@@ -92,3 +92,77 @@ export interface RunResult {
   warnings: string[];
   reportPath: string;
 }
+
+export type ExecutionPolicy = "inspect" | "check" | "sandboxed" | "trusted";
+
+export type ReadinessDimensionId =
+  | "product-coherence"
+  | "runtime-health"
+  | "ux-completeness"
+  | "maintainability"
+  | "safety"
+  | "agent-readiness";
+
+export type ReadinessVerdict = "ready" | "conditionally-ready" | "not-ready" | "unknown";
+
+export interface AssessmentCase {
+  id: string;
+  title: string;
+  appBrief: string;
+  repoSource?: RepoSource;
+  expectedAreas: string[];
+  casePath: string;
+  caseDir: string;
+}
+
+export interface FrameworkSignal {
+  name: string;
+  evidence: string;
+}
+
+export interface ScriptInventory {
+  packageManager: "pnpm" | "npm" | "yarn" | "unknown";
+  scripts: Record<string, string>;
+  dependencies: string[];
+  devDependencies: string[];
+  warnings: string[];
+}
+
+export interface ExecutionCheck {
+  name: string;
+  command: string;
+  status: "passed" | "failed" | "skipped";
+  output: string;
+}
+
+export interface DimensionScore {
+  id: ReadinessDimensionId;
+  name: string;
+  score: number;
+  maxScore: number;
+  evidence: string[];
+  concerns: string[];
+}
+
+export interface ReadinessAssessment {
+  id: string;
+  title: string;
+  repoPath: string;
+  appBrief: string;
+  briefSource: string;
+  executionPolicy: ExecutionPolicy;
+  repoContext: RepoContext;
+  expectedAreas: string[];
+  frameworkSignals: FrameworkSignal[];
+  scriptInventory: ScriptInventory;
+  executionChecks: ExecutionCheck[];
+  dimensions: DimensionScore[];
+  score: number;
+  verdict: ReadinessVerdict;
+  evidence: string[];
+  concerns: string[];
+  blockingConcerns: string[];
+  remediationGuidance: string[];
+  warnings: string[];
+  reportPath: string;
+}

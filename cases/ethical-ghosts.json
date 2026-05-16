@@ -1,42 +1,18 @@
 {
   "id": "ethical-ghosts",
-  "title": "Ethical Ghosts",
-  "repoUrl": "git@github.com:selfinterest/ethical-ghosts.git",
-  "repoRef": "main",
-  "task": "Describe the user-style repository task the agent should answer.",
-  "expectedFiles": [
-    "README.md",
-    "package.json",
-    "src/app/admin/page.tsx",
-    "src/app/api/auth/create-password-account/route.ts",
-    "src/app/api/auth/link-oauth-account/route.ts",
-    "src/app/api/auth/setup-token-info/route.ts"
-  ],
-  "rubric": [
-    {
-      "id": "grounded-repo-understanding",
-      "description": "Identifies task-relevant files, symbols, or repository areas without inventing unsupported details",
-      "weight": 3
-    },
-    {
-      "id": "bounded-plan",
-      "description": "Proposes a bounded implementation or investigation plan that fits the requested task",
-      "weight": 2
-    },
-    {
-      "id": "edge-cases",
-      "description": "Names important edge cases, risks, or constraints that affect the task",
-      "weight": 1
-    }
-  ],
-  "responses": [
-    {
-      "name": "Grounded response",
-      "fixturePath": "../fixtures/ethical-ghosts-grounded-response.md"
-    },
-    {
-      "name": "Generic response",
-      "fixturePath": "../fixtures/ethical-ghosts-generic-response.md"
-    }
+  "title": "Ethical Ghosts readiness assessment",
+  "repoPath": "../../ethical-ghosts",
+  "appBrief": "Ethical Ghosts is a Next.js application with admin and authentication flows for account setup, password account creation, OAuth account linking, signup evaluation, questionnaire intake, and authenticated app management.",
+  "expectedAreas": [
+    "src/app/admin",
+    "src/app/api/auth",
+    "src/app/api/evaluation",
+    "src/app/api/questionnaire",
+    "src/app/app/dashboard",
+    "src/app/app/profile",
+    "src/app/auth",
+    "Supabase configuration",
+    "environment configuration",
+    "deployment configuration"
   ]
 }

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { EvalCase, Judgment, RepoContext, RunResult } from "./types.js";
+import type { EvalCase, Judgment, ReadinessAssessment, RepoContext, RunResult } from "./types.js";
 
 export async function writeMarkdownReport(
   evalCase: EvalCase,
@@ -54,6 +54,59 @@ export function renderConsoleSummary(result: RunResult, mode: "run" | "compare")
     const concern = judgment.concerns[0] ? ` Concern: ${judgment.concerns[0]}` : "";
     lines.push(`${prefix}${judgment.responseName}: ${judgment.weightedScore}/10 (${judgment.verdict}).${concern}`);
   });
+
+  return lines.join("\n");
+}
+
+export async function writeReadinessReport(
+  assessment: Omit<ReadinessAssessment, "reportPath">,
+): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const reportsDir = path.resolve("reports");
+  const reportPath = path.join(reportsDir, `${assessment.id}-${timestamp}.md`);
+  await mkdir(reportsDir, { recursive: true });
+  await writeFile(reportPath, renderReadinessMarkdown(assessment), "utf8");
+  return reportPath;
+}
+
+export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): string {
+  const lines: string[] = [];
+  lines.push(`Assessment: ${assessment.title}`);
+  lines.push(`Repo: ${assessment.repoPath}`);
+  lines.push(`Verdict: ${assessment.verdict} (${assessment.score}/10)`);
+  lines.push(`Policy: ${assessment.executionPolicy}`);
+  lines.push(`Report: ${path.relative(process.cwd(), assessment.reportPath)}`);
+
+  if (assessment.warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const warning of assessment.warnings.slice(0, 5)) {
+      lines.push(`- ${warning}`);
+    }
+    if (assessment.warnings.length > 5) {
+      lines.push(`- ... ${assessment.warnings.length - 5} more warnings in the markdown report`);
+    }
+  }
+
+  if (assessment.blockingConcerns.length > 0) {
+    lines.push("");
+    lines.push("Blocking concerns:");
+    for (const concern of assessment.blockingConcerns.slice(0, 5)) {
+      lines.push(`- ${concern}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("Dimensions:");
+  for (const dimension of assessment.dimensions) {
+    const concern = dimension.concerns[0] ? ` Concern: ${dimension.concerns[0]}` : "";
+    lines.push(`- ${dimension.name}: ${dimension.score}/10.${concern}`);
+  }
+
+  if (assessment.remediationGuidance.length > 0) {
+    lines.push("");
+    lines.push(`Next fix: ${assessment.remediationGuidance[0]}`);
+  }
 
   return lines.join("\n");
 }
@@ -152,6 +205,122 @@ function renderMarkdown(
   return `${lines.join("\n")}\n`;
 }
 
+function renderReadinessMarkdown(assessment: Omit<ReadinessAssessment, "reportPath">): string {
+  const lines: string[] = [];
+  lines.push(`# ${assessment.title}`);
+  lines.push("");
+  lines.push(`- Assessment: \`${assessment.id}\``);
+  lines.push(`- Verdict: \`${assessment.verdict}\``);
+  lines.push(`- Score: ${assessment.score}/10`);
+  lines.push(`- Repo path: \`${assessment.repoPath}\``);
+  lines.push(`- Brief source: \`${assessment.briefSource}\``);
+  lines.push(`- Execution policy: \`${assessment.executionPolicy}\``);
+  lines.push(`- Repo files scanned: ${assessment.repoContext.scannedFiles}/${assessment.repoContext.totalEligibleFiles}`);
+  lines.push("");
+
+  lines.push("## App Brief");
+  lines.push("");
+  lines.push(assessment.appBrief || "_No app brief supplied._");
+  lines.push("");
+
+  if (assessment.expectedAreas.length > 0) {
+    lines.push("## Expected Areas");
+    lines.push("");
+    for (const area of assessment.expectedAreas) {
+      lines.push(`- ${area}`);
+    }
+    lines.push("");
+  }
+
+  if (assessment.warnings.length > 0) {
+    lines.push("## Warnings");
+    lines.push("");
+    appendBullets(lines, assessment.warnings);
+    lines.push("");
+  }
+
+  lines.push("## Framework Signals");
+  lines.push("");
+  if (assessment.frameworkSignals.length === 0) {
+    lines.push("- None detected.");
+  } else {
+    for (const signal of assessment.frameworkSignals) {
+      lines.push(`- **${signal.name}**: ${signal.evidence}`);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Script Inventory");
+  lines.push("");
+  lines.push(`- Package manager: \`${assessment.scriptInventory.packageManager}\``);
+  if (Object.keys(assessment.scriptInventory.scripts).length === 0) {
+    lines.push("- Scripts: none detected.");
+  } else {
+    for (const [name, command] of Object.entries(assessment.scriptInventory.scripts)) {
+      lines.push(`- \`${name}\`: \`${command}\``);
+    }
+  }
+  lines.push("");
+
+  lines.push("## Execution Checks");
+  lines.push("");
+  lines.push("| Check | Command | Status | Output |");
+  lines.push("| --- | --- | --- | --- |");
+  for (const check of assessment.executionChecks) {
+    lines.push(
+      `| ${escapeTable(check.name)} | \`${escapeTable(check.command)}\` | \`${check.status}\` | ${escapeTable(firstLine(check.output))} |`,
+    );
+  }
+  lines.push("");
+
+  lines.push("## Dimension Scores");
+  lines.push("");
+  lines.push("| Dimension | Score | Highest-signal concern |");
+  lines.push("| --- | ---: | --- |");
+  for (const dimension of assessment.dimensions) {
+    lines.push(
+      `| ${dimension.name} | ${dimension.score}/10 | ${escapeTable(dimension.concerns[0] ?? "None")} |`,
+    );
+  }
+  lines.push("");
+
+  lines.push("## Blocking Concerns");
+  lines.push("");
+  appendBullets(lines, assessment.blockingConcerns);
+  lines.push("");
+
+  lines.push("## Evidence");
+  lines.push("");
+  appendBullets(lines, assessment.evidence);
+  lines.push("");
+
+  lines.push("## Concerns");
+  lines.push("");
+  appendBullets(lines, assessment.concerns);
+  lines.push("");
+
+  lines.push("## Remediation Guidance");
+  lines.push("");
+  appendBullets(lines, assessment.remediationGuidance);
+  lines.push("");
+
+  lines.push("## Repo Context Summary");
+  lines.push("");
+  if (assessment.repoContext.files.length === 0) {
+    lines.push("No files were available in repo context.");
+  } else {
+    for (const file of assessment.repoContext.files.slice(0, 35)) {
+      lines.push(`- \`${file.path}\`${file.truncated ? " (truncated)" : ""}`);
+    }
+    if (assessment.repoContext.files.length > 35) {
+      lines.push(`- ... ${assessment.repoContext.files.length - 35} more files`);
+    }
+  }
+  lines.push("");
+
+  return `${lines.join("\n")}\n`;
+}
+
 function appendBullets(lines: string[], items: string[]): void {
   if (items.length === 0) {
     lines.push("- None.");
@@ -164,4 +333,9 @@ function appendBullets(lines: string[], items: string[]): void {
 
 function escapeTable(value: string): string {
   return value.replace(/\|/g, "\\|");
+}
+
+function firstLine(value: string): string {
+  const first = value.split(/\r?\n/).find((line) => line.trim().length > 0);
+  return first ? first.slice(0, 180) : "";
 }

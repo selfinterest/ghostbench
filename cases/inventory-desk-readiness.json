@@ -1,0 +1,12 @@
+{
+  "id": "inventory-desk-readiness",
+  "title": "Inventory Desk readiness assessment",
+  "repoPath": "../fixture-repos/coherent-vite-app",
+  "appBrief": "Inventory Desk is an operations dashboard for tracking low-stock items, reviewing supplier status, and preparing reorder decisions.",
+  "expectedAreas": [
+    "inventory summary",
+    "supplier status",
+    "reorder decisions",
+    "src"
+  ]
+}

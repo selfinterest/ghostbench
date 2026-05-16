@@ -1,15 +1,24 @@
 #!/usr/bin/env node
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { assessRepository, loadAssessmentCase } from "./assess.js";
 import { githubRepoOverride, runCase } from "./runCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
-import { renderConsoleSummary } from "./report.js";
+import { renderConsoleSummary, renderReadinessConsoleSummary } from "./report.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
+import type { ExecutionPolicy } from "./types.js";
 
 async function main(): Promise<void> {
   const [, , command, ...commandArgs] = process.argv;
 
   try {
+    if (command === "assess") {
+      const assessmentOptions = await parseAssessArgs(commandArgs);
+      const assessment = await assessRepository(assessmentOptions);
+      console.log(renderReadinessConsoleSummary(assessment));
+      return;
+    }
+
     if (command === "run" || command === "compare") {
       const [casePath, ...args] = commandArgs;
       if (!casePath) {
@@ -31,6 +40,9 @@ async function main(): Promise<void> {
     }
 
     console.log(`Usage:
+  pnpm ghostbench assess <repoPath> --brief <text> [--policy inspect|check]
+  pnpm ghostbench assess <repoPath> --brief-file <path> [--policy inspect|check]
+  pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
   pnpm ghostbench run <casePath> [--provider openai --model <model>]
   pnpm ghostbench compare <casePath> [--repo-url <url>] [--repo-ref <ref>]
@@ -40,6 +52,126 @@ async function main(): Promise<void> {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
+}
+
+interface CliAssessOptions {
+  repoPath?: string;
+  brief?: string;
+  briefFile?: string;
+  casePath?: string;
+  policy: ExecutionPolicy;
+}
+
+async function parseAssessArgs(args: string[]): Promise<{
+  repoPath: string;
+  appBrief: string;
+  briefSource: string;
+  expectedAreas: string[];
+  title: string;
+  id: string;
+  policy: ExecutionPolicy;
+}> {
+  const [repoArg, ...rest] = args;
+  if (!repoArg) {
+    throw new Error("Usage: pnpm ghostbench assess <repoPath> --brief <text>");
+  }
+
+  const options: CliAssessOptions = { repoPath: repoArg, policy: "inspect" };
+  for (let index = 0; index < rest.length; index += 1) {
+    const arg = rest[index];
+    if (arg === "--brief") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--brief requires a value");
+      }
+      options.brief = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--brief-file") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--brief-file requires a value");
+      }
+      options.briefFile = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--case") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--case requires a value");
+      }
+      options.casePath = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--policy") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--policy requires a value");
+      }
+      options.policy = parseExecutionPolicy(value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  const briefSources = [options.brief, options.briefFile, options.casePath].filter(Boolean);
+  if (briefSources.length !== 1) {
+    throw new Error("Provide exactly one of --brief, --brief-file, or --case");
+  }
+
+  if (options.casePath) {
+    const assessmentCase = await loadAssessmentCase(options.casePath);
+    return {
+      repoPath:
+        options.repoPath && options.repoPath !== "."
+          ? path.resolve(options.repoPath)
+          : assessmentCase.repoSource?.type === "local"
+            ? assessmentCase.repoSource.path
+            : path.resolve(options.repoPath ?? "."),
+      appBrief: assessmentCase.appBrief,
+      briefSource: path.resolve(options.casePath),
+      expectedAreas: assessmentCase.expectedAreas,
+      title: assessmentCase.title,
+      id: assessmentCase.id,
+      policy: options.policy,
+    };
+  }
+
+  if (options.briefFile) {
+    const resolvedBriefFile = path.resolve(options.briefFile);
+    const resolvedRepoPath = path.resolve(repoArg);
+    return {
+      repoPath: resolvedRepoPath,
+      appBrief: (await readFile(resolvedBriefFile, "utf8")).trim(),
+      briefSource: resolvedBriefFile,
+      expectedAreas: [],
+      title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
+      id: slugify(path.basename(resolvedRepoPath)),
+      policy: options.policy,
+    };
+  }
+
+  const resolvedRepoPath = path.resolve(repoArg);
+  return {
+    repoPath: resolvedRepoPath,
+    appBrief: options.brief ?? "",
+    briefSource: "cli",
+    expectedAreas: [],
+    title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
+    id: slugify(path.basename(resolvedRepoPath)),
+    policy: options.policy,
+  };
+}
+
+function parseExecutionPolicy(value: string): ExecutionPolicy {
+  if (value === "inspect" || value === "check" || value === "sandboxed" || value === "trusted") {
+    return value;
+  }
+  throw new Error(`Unsupported execution policy: ${value}`);
 }
 
 interface CliRunOptions {

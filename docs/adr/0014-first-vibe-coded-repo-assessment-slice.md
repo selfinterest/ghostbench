@@ -1,0 +1,3 @@
+# First vibe-coded repository assessment slice
+
+The first Ghostbench pivot implementation will ship `assess <repoPath>` with app briefs from CLI text, brief files, or case files; inspect and check execution policies; console and markdown readiness reports; dimension scores; evidence, concerns, blocking concerns, remediation guidance, repo summary, framework signals, script inventory, and policy-bound execution checks. Browser checks, patch generation, multi-repo comparison, default LLM judging, and broad non-Node framework support are deferred so the first slice proves the app-owner readiness workflow.
