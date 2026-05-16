@@ -1,0 +1,12 @@
+{
+  "name": "messy-vibe-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite --host 0.0.0.0"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  }
+}

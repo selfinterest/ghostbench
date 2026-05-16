@@ -14,8 +14,21 @@ const INCLUDED_EXTENSIONS = new Set([
   ".html",
   ".lua",
   ".xml",
+  ".yaml",
+  ".yml",
 ]);
-const INCLUDED_FILENAMES = new Set(["readme", "license", "licence", "copying", "changelog", "authors", "contributors"]);
+const INCLUDED_FILENAMES = new Set([
+  ".env",
+  ".env.example",
+  ".env.local",
+  "readme",
+  "license",
+  "licence",
+  "copying",
+  "changelog",
+  "authors",
+  "contributors",
+]);
 const MAX_FILES = 200;
 const MAX_BYTES_PER_FILE = 20 * 1024;
 
