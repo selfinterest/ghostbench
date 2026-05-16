@@ -133,6 +133,75 @@ The judge should:
 
 Make the judge intentionally replaceable. It should be obvious how to later swap in an LLM judge.
 
+## Settled MVP Decisions
+
+These choices came out of the domain grilling session. Treat them as implementation guidance unless a later ADR supersedes them.
+
+### Case Format
+
+- Eval cases are JSON for the MVP, but `CONTEXT.md` keeps the domain language format-agnostic.
+- Case JSON should include `responses`, not `fixtures`.
+- Each response entry should include a human-readable `name` and a `fixturePath`.
+- All paths inside an eval case, including `repoPath` and `fixturePath`, should resolve relative to the case file.
+- `responses` are embedded in the case file as an MVP convenience. Conceptually, a run evaluates selected agent responses against an eval case.
+- Every MVP case must include:
+  - a stable human-readable slug `id`
+  - a user-style `task`
+  - at least one response
+  - at least one rubric item
+- `expectedFiles` are optional and advisory. They may name files, directories, or repository areas, including documentation.
+- `expectedFiles` should appear in reports, but should not be treated as hidden gold labels.
+- Fixture responses are markdown text files for the MVP.
+- Missing, unreadable, or empty fixture responses are validation errors.
+- Missing target repositories are warnings, not validation errors.
+- Malformed case JSON and missing rubric items are validation errors.
+- Rubric item weights are positive relative weights. They do not need to sum to 1 or 100.
+- Rubric item scores are constrained to 0 through 10.
+- Rubric item descriptions should be evaluative, not imperative.
+
+### Run Behavior
+
+- `run` and `compare` use the same execution path.
+- `compare` changes console emphasis; it does not create a different domain artifact.
+- A run can evaluate one or more agent responses.
+- Ranking exists only when multiple agent responses are evaluated.
+- `compare` with one response should still run and emit a warning that ranking is not meaningful.
+- CLI runs should exit nonzero for invalid inputs or runtime failures, not because all responses are weak.
+- `init-case` should create a richer valid template at `cases/new-case.json` and must not overwrite an existing file.
+
+### Judging Heuristics
+
+- Use both rubric-specific signals and general Ghostbench heuristics.
+- Extract meaningful keywords from the task and rubric descriptions, dropping common stopwords.
+- Treat expected-file matches as stronger evidence than keyword overlap.
+- Parse likely file paths from agent responses conservatively.
+- Parse simple backticked symbols and function-like names conservatively.
+- Search extracted symbols against file paths and included file contents in the repo context.
+- Phrase absent path or symbol concerns as "not found in available repo context", not as absolute nonexistence.
+- Penalize unsupported confident claims more than cautious guesses.
+- Reward specific inspection plans; do not reward generic "I would inspect the code" language much.
+- Reward edge-case awareness as a weak general signal, with task/rubric-specific edge cases carrying more weight.
+- Penalize generic plans that could apply to any repository.
+- Penalize overbroad rewrite language unless the task asks for that scope.
+- Keep scores bounded. Concerns should not drive numeric scores below 0.
+- Do not globally cap verdicts because of one invented file; repeated or central invented references should strongly hurt the verdict.
+- Verdicts use fixed global thresholds for the MVP.
+- Rank by weighted score with deterministic tie-breakers, such as verdict and stable response name.
+
+### Reporting
+
+- Generate one markdown report and one console summary for every successful run.
+- Markdown reports are the only durable run record for the MVP.
+- Keep generated reports under `reports/{caseId}-{timestamp}.md`.
+- Commit `reports/.gitkeep`, but gitignore generated `reports/*.md`.
+- Reports should include warnings before score tables.
+- Reports should include task text, repo path, repo context summary, expected files when present, response names, fixture paths, per-rubric-item scores, evidence, concerns, warnings, and ranking when multiple responses were evaluated.
+- Reports should order response result sections by ranking, not input order.
+- Reports should show full evidence and concern strings.
+- Reports should not include full agent response text by default.
+- Console summaries should be compact: ranking when available, scores, verdicts, warnings, and the highest-signal concern.
+- Console summaries should avoid "winner"; use "ranking" or "top response".
+
 ## Report Requirements
 
 Generate both:

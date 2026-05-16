@@ -1,0 +1,43 @@
+{
+  "id": "bagshui-layout",
+  "title": "Bagshui compact layout change",
+  "repoPath": "../../Bagshui",
+  "task": "Modify the addon so the overall window is as small as possible by placing categories horizontally when useful.",
+  "expectedFiles": [
+    "Components",
+    "Layouts",
+    "Categories"
+  ],
+  "rubric": [
+    {
+      "id": "layout-location",
+      "description": "Identifies files, functions, or repository areas responsible for layout behavior",
+      "weight": 3
+    },
+    {
+      "id": "bounded-layout-plan",
+      "description": "Proposes a bounded layout change instead of rewriting unrelated addon behavior",
+      "weight": 3
+    },
+    {
+      "id": "edge-cases",
+      "description": "Mentions overflow, resizing, many categories, or small-screen edge cases",
+      "weight": 2
+    },
+    {
+      "id": "repo-grounding",
+      "description": "Avoids invented files and unsupported confident claims when repo context is missing or partial",
+      "weight": 2
+    }
+  ],
+  "responses": [
+    {
+      "name": "Grounded Bagshui response",
+      "fixturePath": "../fixtures/bagshui-good-response.md"
+    },
+    {
+      "name": "Generic Bagshui response",
+      "fixturePath": "../fixtures/bagshui-bad-response.md"
+    }
+  ]
+}

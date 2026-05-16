@@ -1,0 +1,43 @@
+{
+  "id": "nightcrawler-template-update",
+  "title": "Nightcrawler template update workflow",
+  "repoPath": "../../nightcrawler",
+  "task": "Reason about an MCP-style service that caches GCS extracts, compares them against a nursing model repo, and helps generate reviewable update PRs.",
+  "expectedFiles": [
+    "src",
+    "docs",
+    "templates"
+  ],
+  "rubric": [
+    {
+      "id": "artifact-comparison",
+      "description": "Emphasizes deterministic artifact comparison between cached extracts and model-ready repository artifacts",
+      "weight": 3
+    },
+    {
+      "id": "stable-identifiers",
+      "description": "Accounts for stable identifiers, versioned artifacts, and cache behavior",
+      "weight": 3
+    },
+    {
+      "id": "reviewable-prs",
+      "description": "Preserves reviewable pull request generation instead of opaque update behavior",
+      "weight": 2
+    },
+    {
+      "id": "bounded-architecture",
+      "description": "Avoids generic RAG or vector database architecture when deterministic diffs are the primary need",
+      "weight": 2
+    }
+  ],
+  "responses": [
+    {
+      "name": "Grounded Nightcrawler response",
+      "fixturePath": "../fixtures/nightcrawler-good-response.md"
+    },
+    {
+      "name": "Generic RAG response",
+      "fixturePath": "../fixtures/nightcrawler-bad-response.md"
+    }
+  ]
+}
