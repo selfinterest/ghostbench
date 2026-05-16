@@ -159,7 +159,9 @@ function judgeResponse(evalCase: EvalCase, repoContext: RepoContext, response: A
 
   return {
     responseName: response.name,
-    fixturePath: path.relative(process.cwd(), response.fixturePath),
+    responseSourceType: response.sourceType,
+    responseSource:
+      response.sourceType === "fixture" ? path.relative(process.cwd(), response.source) : response.source,
     rubricScores,
     rawScore: round2(rawScore),
     maxScore,

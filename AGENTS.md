@@ -6,7 +6,7 @@ Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents
 
 It is not a chatbot. It is an eval harness for repo-aware coding agents.
 
-The MVP should run entirely offline using fixture responses. Do not call OpenAI, Anthropic, GitHub, or any other external API in the initial implementation.
+The default workflow should run entirely offline using fixture responses. OpenAI may be called only when the user explicitly runs provider mode with `--provider openai --model <model>`.
 
 ## Tech Stack
 
@@ -16,7 +16,8 @@ The MVP should run entirely offline using fixture responses. Do not call OpenAI,
 - Plain modules preferred
 - No web framework
 - No database
-- No external model calls for the MVP
+- No external model calls in the default fixture workflow
+- OpenAI SDK is allowed for explicit provider-mode Agent Response generation
 
 ## Core Commands
 
@@ -26,6 +27,7 @@ Expected commands:
 pnpm install
 pnpm typecheck
 pnpm ghostbench run cases/bagshui-layout.json
+pnpm ghostbench run cases/bagshui-layout.json --provider openai --model <model>
 pnpm ghostbench compare cases/bagshui-layout.json
 pnpm ghostbench init-case
 ```
@@ -76,6 +78,7 @@ Every module should have one job:
 - `loadCase.ts`: read and validate JSON eval cases
 - `loadRepoContext.ts`: scan a target repo safely and return bounded context
 - `runCase.ts`: orchestrate case loading, repo scanning, fixture loading, judging, and reporting
+- `providers/`: generate optional live Agent Responses when provider mode is explicitly requested
 - `judge.ts`: deterministic heuristic judging for MVP
 - `report.ts`: console and markdown report generation
 
@@ -152,6 +155,8 @@ These choices came out of the domain grilling session. Treat them as implementat
 - `expectedFiles` are optional and advisory. They may name files, directories, or repository areas, including documentation.
 - `expectedFiles` should appear in reports, but should not be treated as hidden gold labels.
 - Fixture responses are markdown text files for the MVP.
+- Provider-generated responses may be added to a run only when explicitly requested from the CLI.
+- Provider mode is additive: existing fixture responses should still be evaluated.
 - Missing, unreadable, or empty fixture responses are validation errors.
 - Missing target repositories are warnings, not validation errors.
 - Malformed case JSON and missing rubric items are validation errors.
@@ -164,6 +169,9 @@ These choices came out of the domain grilling session. Treat them as implementat
 - `run` and `compare` use the same execution path.
 - `compare` changes console emphasis; it does not create a different domain artifact.
 - A run can evaluate one or more agent responses.
+- `--provider openai --model <model>` generates one additional Agent Response named `OpenAI <model>`.
+- OpenAI provider mode uses `OPENAI_API_KEY` from the environment and fails clearly when it is missing.
+- Provider or network/API failures are runtime failures, not repo warnings.
 - Ranking exists only when multiple agent responses are evaluated.
 - `compare` with one response should still run and emit a warning that ranking is not meaningful.
 - CLI runs should exit nonzero for invalid inputs or runtime failures, not because all responses are weak.
@@ -207,7 +215,7 @@ These choices came out of the domain grilling session. Treat them as implementat
 - Keep generated reports under `reports/{caseId}-{timestamp}.md`.
 - Commit `reports/.gitkeep`, but gitignore generated `reports/*.md`.
 - Reports should include warnings before score tables.
-- Reports should include task text, repo path, repo context summary, expected files when present, response names, fixture paths, per-rubric-item scores, evidence, concerns, warnings, and ranking when multiple responses were evaluated.
+- Reports should include task text, repo path, repo context summary, expected files when present, response names, response sources, per-rubric-item scores, evidence, concerns, warnings, and ranking when multiple responses were evaluated.
 - Reports should order response result sections by ranking, not input order.
 - Reports should show full evidence and concern strings.
 - Reports should not include full agent response text by default.
@@ -248,10 +256,22 @@ pnpm ghostbench run <casePath>
 Runs the case against fixture responses and writes a report.
 
 ```bash
+pnpm ghostbench run <casePath> --provider openai --model <model>
+```
+
+Runs fixture responses plus one OpenAI-generated Agent Response and writes a report.
+
+```bash
 pnpm ghostbench compare <casePath>
 ```
 
 Same execution path as `run`, but the console output should emphasize ranking and comparison.
+
+```bash
+pnpm ghostbench compare <casePath> --provider openai --model <model>
+```
+
+Compares fixture responses plus one OpenAI-generated Agent Response.
 
 ```bash
 pnpm ghostbench init-case
@@ -284,7 +304,7 @@ The README should explain:
 - How to add a new case
 - How reports work
 - Future roadmap:
-  - OpenAI/Anthropic model provider adapters
+  - Additional model provider adapters, including Anthropic
   - LLM-as-judge
   - MCP server exposing:
     - `run_eval_case`
@@ -300,6 +320,7 @@ Before stopping:
 - Run `pnpm install`
 - Run `pnpm typecheck`
 - Run `pnpm ghostbench run cases/bagshui-layout.json`
+- If `OPENAI_API_KEY` is present, run a provider smoke test against a small case. If not present, document that provider smoke was skipped.
 - Fix any errors
 - Show final file tree
 - Show exact commands to run
@@ -310,6 +331,7 @@ Before stopping:
 - Do not build a web UI
 - Do not add a database
 - Do not call external APIs
+- Do not call OpenAI unless provider mode was explicitly requested
 - Do not require a real Bagshui or Nightcrawler repo to exist
 - Do not over-engineer provider abstractions
 - Do not bury the project in dependencies

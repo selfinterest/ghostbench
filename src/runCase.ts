@@ -3,12 +3,14 @@ import { loadCase } from "./loadCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
 import { judgeResponses } from "./judge.js";
+import { createProvider, type ProviderOptions } from "./providers/index.js";
 import { rankJudgments, writeMarkdownReport } from "./report.js";
 import type { AgentResponse, GitHubRepoSource, RepoSource, RunResult } from "./types.js";
 
 export interface RunCaseOptions {
   mode?: "run" | "compare";
   repoOverride?: RepoSource;
+  provider?: ProviderOptions;
 }
 
 export async function runCase(casePath: string, options: RunCaseOptions = {}): Promise<RunResult> {
@@ -17,6 +19,16 @@ export async function runCase(casePath: string, options: RunCaseOptions = {}): P
   const resolvedRepoSource = await resolveRepoSource(repoSource);
   const repoContext = await loadRepoContext(resolvedRepoSource.localPath, resolvedRepoSource.sourceLabel);
   const responses = await loadResponses(evalCase.responses);
+  if (options.provider) {
+    const provider = createProvider(options.provider);
+    responses.push(
+      await provider.generate({
+        evalCase,
+        repoContext,
+        model: options.provider.model,
+      }),
+    );
+  }
   const judgments = judgeResponses(evalCase, repoContext, responses);
   const ranking = rankJudgments(judgments);
   const warnings = [...resolvedRepoSource.warnings, ...repoContext.warnings];
@@ -50,7 +62,8 @@ async function loadResponses(responses: { name: string; resolvedFixturePath: str
   for (const response of responses) {
     loaded.push({
       name: response.name,
-      fixturePath: response.resolvedFixturePath,
+      sourceType: "fixture",
+      source: response.resolvedFixturePath,
       text: (await readFile(response.resolvedFixturePath, "utf8")).trim(),
     });
   }
