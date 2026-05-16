@@ -19,6 +19,7 @@ async function main(): Promise<void> {
       const result = await runCase(casePath, {
         mode: command,
         repoOverride: cliOptions.repoUrl ? githubRepoOverride(cliOptions.repoUrl, cliOptions.repoRef) : undefined,
+        provider: cliOptions.provider && cliOptions.model ? { provider: cliOptions.provider, model: cliOptions.model } : undefined,
       });
       console.log(renderConsoleSummary(result, command));
       return;
@@ -31,7 +32,9 @@ async function main(): Promise<void> {
 
     console.log(`Usage:
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
+  pnpm ghostbench run <casePath> [--provider openai --model <model>]
   pnpm ghostbench compare <casePath> [--repo-url <url>] [--repo-ref <ref>]
+  pnpm ghostbench compare <casePath> [--provider openai --model <model>]
   pnpm ghostbench init-case [--repo-url <url>] [--repo-ref <ref>] [--id <slug>] [--title <title>]`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
@@ -42,6 +45,8 @@ async function main(): Promise<void> {
 interface CliRunOptions {
   repoUrl?: string;
   repoRef?: string;
+  provider?: "openai";
+  model?: string;
 }
 
 function parseRunArgs(args: string[]): CliRunOptions {
@@ -66,11 +71,38 @@ function parseRunArgs(args: string[]): CliRunOptions {
       index += 1;
       continue;
     }
+    if (arg === "--provider") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("--provider requires a value");
+      }
+      if (value !== "openai") {
+        throw new Error(`Unsupported provider: ${value}`);
+      }
+      options.provider = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--model") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("--model requires a value");
+      }
+      options.model = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown option: ${arg}`);
   }
 
   if (options.repoRef && !options.repoUrl) {
     throw new Error("--repo-ref requires --repo-url");
+  }
+  if (options.provider && !options.model) {
+    throw new Error("--provider openai requires --model <model>");
+  }
+  if (options.model && !options.provider) {
+    throw new Error("--model requires --provider openai");
   }
 
   return options;

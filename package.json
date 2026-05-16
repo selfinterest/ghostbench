@@ -12,6 +12,9 @@
     "typecheck": "tsc --noEmit",
     "ghostbench": "tsx src/cli.ts"
   },
+  "dependencies": {
+    "openai": "^6.37.0"
+  },
   "devDependencies": {
     "@types/node": "^20.12.12",
     "tsx": "^4.19.2",

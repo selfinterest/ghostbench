@@ -54,7 +54,8 @@ export interface RepoFile {
 
 export interface AgentResponse {
   name: string;
-  fixturePath: string;
+  sourceType: "fixture" | "provider";
+  source: string;
   text: string;
 }
 
@@ -71,7 +72,8 @@ export type Verdict = "strong" | "acceptable" | "weak";
 
 export interface Judgment {
   responseName: string;
-  fixturePath: string;
+  responseSourceType: "fixture" | "provider";
+  responseSource: string;
   rubricScores: RubricScore[];
   rawScore: number;
   maxScore: number;

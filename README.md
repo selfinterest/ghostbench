@@ -4,7 +4,9 @@ Ghostbench is a local-first TypeScript CLI for evaluating repo-aware coding agen
 
 It asks one question: did the agent demonstrate repo understanding, or did it produce a plausible generic plan?
 
-The MVP runs entirely offline. It evaluates markdown fixture responses against JSON eval cases, uses a deterministic heuristic judge, prints a console summary, and writes a markdown report.
+The default workflow runs entirely offline. It evaluates markdown fixture responses against JSON eval cases, uses a deterministic heuristic judge, prints a console summary, and writes a markdown report.
+
+Ghostbench can also generate a live Agent Response with OpenAI when explicitly requested. Provider-generated responses are judged by the same deterministic heuristic judge as fixture responses.
 
 ## Install
 
@@ -21,6 +23,17 @@ pnpm ghostbench run cases/nightcrawler-template-update.json
 ```
 
 If a sample target repository is not present next to this repo, Ghostbench continues with a warning. Missing repo context is part of what the fixtures are meant to exercise.
+
+## Generate An OpenAI Agent Response
+
+Fixture responses remain enabled in provider mode. The generated Agent Response is added to the run and appears in the same report and ranking:
+
+```bash
+OPENAI_API_KEY=... pnpm ghostbench run cases/bagshui-layout.json --provider openai --model gpt-5.1
+OPENAI_API_KEY=... pnpm ghostbench compare cases/bagshui-layout.json --provider openai --model gpt-5.1
+```
+
+OpenAI provider mode uses the bounded repo context scanned by Ghostbench and fails clearly if `OPENAI_API_KEY` is missing or the API request fails. The provider is only for Agent Response generation; judging remains deterministic and local.
 
 ## Add A Case
 
@@ -92,13 +105,13 @@ Reports are written to:
 reports/{caseId}-{timestamp}.md
 ```
 
-Each report includes the task, repo context summary, warnings, expected files, response names, fixture paths, per-rubric scores, evidence, concerns, and ranking when multiple responses are evaluated.
+Each report includes the task, repo context summary, warnings, expected files, response names, response sources, per-rubric scores, evidence, concerns, and ranking when multiple responses are evaluated.
 
 Generated reports are gitignored by default.
 
 ## Roadmap
 
-- OpenAI and Anthropic provider adapters
+- Anthropic provider adapter
 - LLM-as-judge
 - MCP server tools:
   - `run_eval_case`

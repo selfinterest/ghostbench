@@ -111,11 +111,11 @@ function renderMarkdown(
 
   lines.push("## Score Table");
   lines.push("");
-  lines.push("| Rank | Agent Response | Weighted Score | Verdict | Fixture |");
+  lines.push("| Rank | Agent Response | Weighted Score | Verdict | Source |");
   lines.push("| --- | --- | ---: | --- | --- |");
   ranking.forEach((judgment, index) => {
     lines.push(
-      `| ${ranking.length > 1 ? index + 1 : "-"} | ${escapeTable(judgment.responseName)} | ${judgment.weightedScore}/10 | ${judgment.verdict} | \`${judgment.fixturePath}\` |`,
+      `| ${ranking.length > 1 ? index + 1 : "-"} | ${escapeTable(judgment.responseName)} | ${judgment.weightedScore}/10 | ${judgment.verdict} | \`${judgment.responseSource}\` |`,
     );
   });
   lines.push("");
@@ -126,7 +126,8 @@ function renderMarkdown(
     lines.push(`- Verdict: \`${judgment.verdict}\``);
     lines.push(`- Weighted score: ${judgment.weightedScore}/10`);
     lines.push(`- Raw score: ${judgment.rawScore}/${judgment.maxScore}`);
-    lines.push(`- Fixture: \`${judgment.fixturePath}\``);
+    lines.push(`- Source: \`${judgment.responseSource}\``);
+    lines.push(`- Source type: \`${judgment.responseSourceType}\``);
     lines.push("");
     lines.push("### Rubric Scores");
     lines.push("");
