@@ -168,6 +168,7 @@ These choices came out of the domain grilling session. Treat them as implementat
 - `compare` with one response should still run and emit a warning that ranking is not meaningful.
 - CLI runs should exit nonzero for invalid inputs or runtime failures, not because all responses are weak.
 - `init-case` should create a richer valid template at `cases/new-case.json` and must not overwrite an existing file.
+- `init-case --repo-url <url> --repo-ref <ref> --id <slug> --title <title>` should create a remote-repo case, suggest expected files from the scanned repo context, and create placeholder grounded/generic fixture files.
 
 ### Repo Source Boundary
 

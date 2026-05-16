@@ -1,0 +1,37 @@
+{
+  "id": "remote-smoke",
+  "title": "Remote smoke eval",
+  "repoUrl": "https://github.com/octocat/Hello-World.git",
+  "repoRef": "master",
+  "task": "Describe the user-style repository task the agent should answer.",
+  "expectedFiles": [
+    "README"
+  ],
+  "rubric": [
+    {
+      "id": "grounded-repo-understanding",
+      "description": "Identifies task-relevant files, symbols, or repository areas without inventing unsupported details",
+      "weight": 3
+    },
+    {
+      "id": "bounded-plan",
+      "description": "Proposes a bounded implementation or investigation plan that fits the requested task",
+      "weight": 2
+    },
+    {
+      "id": "edge-cases",
+      "description": "Names important edge cases, risks, or constraints that affect the task",
+      "weight": 1
+    }
+  ],
+  "responses": [
+    {
+      "name": "Grounded response",
+      "fixturePath": "../fixtures/remote-smoke-grounded-response.md"
+    },
+    {
+      "name": "Generic response",
+      "fixturePath": "../fixtures/remote-smoke-generic-response.md"
+    }
+  ]
+}

@@ -30,6 +30,14 @@ Create a starter case:
 pnpm ghostbench init-case
 ```
 
+Create a starter case for a GitHub repository:
+
+```bash
+pnpm ghostbench init-case --repo-url https://github.com/owner/repo.git --repo-ref main --id my-case --title "My repo eval"
+```
+
+For remote cases, `init-case` clones or updates the repo in the user cache, scans the bounded repo context, suggests a small `expectedFiles` list, and creates two placeholder fixture responses under `fixtures/`.
+
 Eval case paths are resolved relative to the case file. MVP cases reference local fixture-backed agent responses:
 
 ```json
