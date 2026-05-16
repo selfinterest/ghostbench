@@ -57,6 +57,25 @@ Eval case paths are resolved relative to the case file. MVP cases reference loca
 
 `expectedFiles` are advisory. They help judge repo understanding, but they are not hidden gold labels.
 
+`repoPath` points to the target repository being evaluated. It can point at an existing local repository outside Ghostbench, such as a sibling checkout under `~/Code`. Ghostbench does not copy or vendor target repositories into this project.
+
+You can also point a run at a GitHub repository:
+
+```bash
+pnpm ghostbench run cases/my-case.json --repo-url https://github.com/owner/repo.git --repo-ref main
+```
+
+Or put the remote source in the case file:
+
+```json
+{
+  "repoUrl": "https://github.com/owner/repo.git",
+  "repoRef": "main"
+}
+```
+
+`repoRef` is optional, but pinning a branch, tag, or commit makes reports easier to interpret. GitHub repositories are cloned or updated into the user cache outside the Ghostbench checkout, then scanned with the same bounded repo-context scanner as local repositories.
+
 ## Reports
 
 Reports are written to:

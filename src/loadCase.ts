@@ -1,11 +1,13 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { CaseResponse, EvalCase, RubricItem } from "./types.js";
+import type { CaseResponse, EvalCase, RepoSource, RubricItem } from "./types.js";
 
 interface RawCase {
   id?: unknown;
   title?: unknown;
   repoPath?: unknown;
+  repoUrl?: unknown;
+  repoRef?: unknown;
   task?: unknown;
   expectedFiles?: unknown;
   rubric?: unknown;
@@ -38,7 +40,7 @@ export async function loadCase(casePath: string): Promise<EvalCase> {
   const errors: string[] = [];
   const id = requireString(raw.id, "id", errors);
   const title = requireString(raw.title, "title", errors);
-  const repoPathValue = requireString(raw.repoPath, "repoPath", errors);
+  const repoSource = readRepoSource(raw, caseDir, errors);
   const task = requireString(raw.task, "task", errors);
   const expectedFiles = readStringArray(raw.expectedFiles, "expectedFiles", errors, []);
   const rubric = readRubric(raw.rubric, errors);
@@ -51,13 +53,46 @@ export async function loadCase(casePath: string): Promise<EvalCase> {
   return {
     id,
     title,
-    repoPath: path.resolve(caseDir, repoPathValue),
+    repoSource,
     task,
     expectedFiles,
     rubric,
     responses,
     casePath: resolvedCasePath,
     caseDir,
+  };
+}
+
+function readRepoSource(raw: RawCase, caseDir: string, errors: string[]): RepoSource {
+  const repoPathValue = typeof raw.repoPath === "string" ? raw.repoPath.trim() : "";
+  const repoUrlValue = typeof raw.repoUrl === "string" ? raw.repoUrl.trim() : "";
+  const hasRepoPath = repoPathValue.length > 0;
+  const hasRepoUrl = repoUrlValue.length > 0;
+
+  if (hasRepoPath && hasRepoUrl) {
+    errors.push("Use either repoPath or repoUrl, not both");
+  }
+
+  if (hasRepoUrl) {
+    const ref = typeof raw.repoRef === "string" && raw.repoRef.trim().length > 0 ? raw.repoRef.trim() : undefined;
+    return {
+      type: "github",
+      url: repoUrlValue,
+      ...(ref ? { ref } : {}),
+    };
+  }
+
+  if (hasRepoPath) {
+    return {
+      type: "local",
+      path: path.resolve(caseDir, repoPathValue),
+    };
+  }
+
+  errors.push("Either repoPath or repoUrl must be provided");
+  return {
+    type: "local",
+    path: caseDir,
   };
 }
 

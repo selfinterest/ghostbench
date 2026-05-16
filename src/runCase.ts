@@ -1,18 +1,26 @@
 import { readFile } from "node:fs/promises";
 import { loadCase } from "./loadCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
+import { resolveRepoSource } from "./resolveRepoSource.js";
 import { judgeResponses } from "./judge.js";
 import { rankJudgments, writeMarkdownReport } from "./report.js";
-import type { AgentResponse, RunResult } from "./types.js";
+import type { AgentResponse, GitHubRepoSource, RepoSource, RunResult } from "./types.js";
 
-export async function runCase(casePath: string, mode: "run" | "compare" = "run"): Promise<RunResult> {
+export interface RunCaseOptions {
+  mode?: "run" | "compare";
+  repoOverride?: RepoSource;
+}
+
+export async function runCase(casePath: string, options: RunCaseOptions = {}): Promise<RunResult> {
   const evalCase = await loadCase(casePath);
-  const repoContext = await loadRepoContext(evalCase.repoPath);
+  const repoSource = options.repoOverride ?? evalCase.repoSource;
+  const resolvedRepoSource = await resolveRepoSource(repoSource);
+  const repoContext = await loadRepoContext(resolvedRepoSource.localPath, resolvedRepoSource.sourceLabel);
   const responses = await loadResponses(evalCase.responses);
   const judgments = judgeResponses(evalCase, repoContext, responses);
   const ranking = rankJudgments(judgments);
-  const warnings = [...repoContext.warnings];
-  if (mode === "compare" && ranking.length < 2) {
+  const warnings = [...resolvedRepoSource.warnings, ...repoContext.warnings];
+  if (options.mode === "compare" && ranking.length < 2) {
     warnings.push("Compare mode evaluated only one agent response, so ranking is not meaningful.");
   }
 
@@ -26,6 +34,14 @@ export async function runCase(casePath: string, mode: "run" | "compare" = "run")
     ranking,
     warnings,
     reportPath,
+  };
+}
+
+export function githubRepoOverride(url: string, ref?: string): GitHubRepoSource {
+  return {
+    type: "github",
+    url,
+    ...(ref ? { ref } : {}),
   };
 }
 

@@ -15,20 +15,21 @@ const INCLUDED_EXTENSIONS = new Set([
   ".lua",
   ".xml",
 ]);
+const INCLUDED_FILENAMES = new Set(["readme", "license", "licence", "copying", "changelog", "authors", "contributors"]);
 const MAX_FILES = 200;
 const MAX_BYTES_PER_FILE = 20 * 1024;
 
-export async function loadRepoContext(repoPath: string): Promise<RepoContext> {
+export async function loadRepoContext(repoPath: string, sourceLabel = repoPath): Promise<RepoContext> {
   const warnings: string[] = [];
   const resolvedRepoPath = path.resolve(repoPath);
 
   try {
     const repoStat = await stat(resolvedRepoPath);
     if (!repoStat.isDirectory()) {
-      return emptyContext(resolvedRepoPath, [`Repo path is not a directory: ${resolvedRepoPath}`]);
+      return emptyContext(resolvedRepoPath, sourceLabel, [`Repo path is not a directory: ${resolvedRepoPath}`]);
     }
   } catch {
-    return emptyContext(resolvedRepoPath, [`Repo path does not exist: ${resolvedRepoPath}`]);
+    return emptyContext(resolvedRepoPath, sourceLabel, [`Repo path does not exist: ${resolvedRepoPath}`]);
   }
 
   const eligibleFiles = await collectEligibleFiles(resolvedRepoPath, warnings);
@@ -56,6 +57,7 @@ export async function loadRepoContext(repoPath: string): Promise<RepoContext> {
 
   return {
     repoPath: resolvedRepoPath,
+    repoSource: sourceLabel,
     exists: true,
     files,
     warnings,
@@ -87,7 +89,7 @@ async function collectEligibleFiles(repoPath: string, warnings: string[]): Promi
         continue;
       }
 
-      if (entry.isFile() && INCLUDED_EXTENSIONS.has(path.extname(entry.name))) {
+      if (entry.isFile() && isIncludedFile(entry.name)) {
         files.push(fullPath);
       }
     }
@@ -97,9 +99,14 @@ async function collectEligibleFiles(repoPath: string, warnings: string[]): Promi
   return files.sort();
 }
 
-function emptyContext(repoPath: string, warnings: string[]): RepoContext {
+function isIncludedFile(fileName: string): boolean {
+  return INCLUDED_EXTENSIONS.has(path.extname(fileName)) || INCLUDED_FILENAMES.has(fileName.toLowerCase());
+}
+
+function emptyContext(repoPath: string, repoSource: string, warnings: string[]): RepoContext {
   return {
     repoPath,
+    repoSource,
     exists: false,
     files: [],
     warnings,

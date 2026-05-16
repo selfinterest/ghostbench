@@ -68,7 +68,8 @@ function renderMarkdown(
   lines.push(`# ${evalCase.title}`);
   lines.push("");
   lines.push(`- Case: \`${evalCase.id}\``);
-  lines.push(`- Repo path: \`${repoContext.repoPath}\``);
+  lines.push(`- Repo source: \`${repoContext.repoSource}\``);
+  lines.push(`- Resolved repo path: \`${repoContext.repoPath}\``);
   lines.push(`- Repo files scanned: ${repoContext.scannedFiles}/${repoContext.totalEligibleFiles}`);
   lines.push("");
   lines.push("## Task");

@@ -1,13 +1,26 @@
 export interface EvalCase {
   id: string;
   title: string;
-  repoPath: string;
+  repoSource: RepoSource;
   task: string;
   expectedFiles: string[];
   rubric: RubricItem[];
   responses: CaseResponse[];
   casePath: string;
   caseDir: string;
+}
+
+export type RepoSource = LocalRepoSource | GitHubRepoSource;
+
+export interface LocalRepoSource {
+  type: "local";
+  path: string;
+}
+
+export interface GitHubRepoSource {
+  type: "github";
+  url: string;
+  ref?: string;
 }
 
 export interface CaseResponse {
@@ -24,6 +37,7 @@ export interface RubricItem {
 
 export interface RepoContext {
   repoPath: string;
+  repoSource: string;
   exists: boolean;
   files: RepoFile[];
   warnings: string[];

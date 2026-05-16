@@ -169,6 +169,17 @@ These choices came out of the domain grilling session. Treat them as implementat
 - CLI runs should exit nonzero for invalid inputs or runtime failures, not because all responses are weak.
 - `init-case` should create a richer valid template at `cases/new-case.json` and must not overwrite an existing file.
 
+### Repo Source Boundary
+
+- Ghostbench must retain the ability to scan existing local repositories supplied by `repoPath`.
+- A user-supplied `repoPath` may point anywhere the user can read, including sibling directories outside the Ghostbench checkout.
+- GitHub repositories may be supplied with `repoUrl` and optional `repoRef` in the case file, or with `--repo-url` and optional `--repo-ref` at the CLI.
+- GitHub repo support should use local `git` clone/fetch behavior, not GitHub API calls.
+- Remote repo support should resolve to a local checkout before scanning, then reuse `loadRepoContext.ts`.
+- Do not copy, clone, cache, or vendor target repositories inside the Ghostbench project directory.
+- Acquired repository material must live outside the Ghostbench checkout, such as under a temp workspace or user cache directory.
+- Keep Ghostbench source, eval cases, fixtures, and reports separate from target repository contents.
+
 ### Judging Heuristics
 
 - Use both rubric-specific signals and general Ghostbench heuristics.
