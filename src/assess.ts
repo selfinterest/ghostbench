@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { loadRepoContext } from "./loadRepoContext.js";
+import { resolveRepoSource } from "./resolveRepoSource.js";
 import { createProvider, type ProviderOptions } from "./providers/index.js";
 import {
   averageDimensionScore,
@@ -16,11 +17,13 @@ import type {
   ExecutionPolicy,
   ReportFormat,
   ReadinessAssessment,
+  RepoSource,
 } from "./types.js";
 import { writeReadinessReport } from "./report.js";
 
 export interface AssessOptions {
-  repoPath: string;
+  repoPath?: string;
+  repoSource?: RepoSource;
   appBrief: string;
   briefSource: string;
   expectedAreas?: string[];
@@ -34,11 +37,16 @@ export interface AssessOptions {
 
 export async function assessRepository(options: AssessOptions): Promise<ReadinessAssessment> {
   const executionPolicy = options.policy ?? "inspect";
-  const repoContext = await loadRepoContext(options.repoPath, options.repoPath, { ignoreGlobs: options.ignoreGlobs ?? [] });
+  const resolvedRepoSource = await resolveRepoSource(
+    options.repoSource ?? { type: "local", path: options.repoPath ?? process.cwd() },
+  );
+  const repoContext = await loadRepoContext(resolvedRepoSource.localPath, resolvedRepoSource.sourceLabel, {
+    ignoreGlobs: options.ignoreGlobs ?? [],
+  });
   const scriptInventory = readScriptInventory(repoContext);
   const frameworkSignals = detectFrameworkSignals(repoContext, scriptInventory);
   const executionChecks = await runExecutionChecks(repoContext.repoPath, executionPolicy, scriptInventory);
-  const warnings = [...repoContext.warnings, ...scriptInventory.warnings];
+  const warnings = [...resolvedRepoSource.warnings, ...repoContext.warnings, ...scriptInventory.warnings];
 
   if (frameworkSignals.length === 0) {
     warnings.push("No first-class Node/TypeScript application framework signals were detected; assessment may be reduced.");
@@ -128,6 +136,15 @@ export async function loadAssessmentCase(casePath: string): Promise<AssessmentCa
   const expectedAreas = readStringArray(raw.expectedAreas ?? raw.expectedFiles, "expectedAreas", errors);
   const ignoreGlobs = readStringArray(raw.ignoreGlobs, "ignoreGlobs", errors);
   const repoPath = typeof raw.repoPath === "string" && raw.repoPath.trim().length > 0 ? raw.repoPath.trim() : undefined;
+  const repoUrl = typeof raw.repoUrl === "string" && raw.repoUrl.trim().length > 0 ? raw.repoUrl.trim() : undefined;
+  const repoRef = typeof raw.repoRef === "string" && raw.repoRef.trim().length > 0 ? raw.repoRef.trim() : undefined;
+
+  if (repoPath && repoUrl) {
+    errors.push("Use either repoPath or repoUrl, not both");
+  }
+  if (repoRef && !repoUrl) {
+    errors.push("repoRef requires repoUrl");
+  }
 
   if (errors.length > 0) {
     throw new Error(`Invalid assessment case ${casePath}:\n- ${errors.join("\n- ")}`);
@@ -140,6 +157,7 @@ export async function loadAssessmentCase(casePath: string): Promise<AssessmentCa
     expectedAreas,
     ignoreGlobs,
     ...(repoPath ? { repoSource: { type: "local", path: path.resolve(caseDir, repoPath) } } : {}),
+    ...(repoUrl ? { repoSource: { type: "github", url: repoUrl, ...(repoRef ? { ref: repoRef } : {}) } } : {}),
     casePath: resolvedCasePath,
     caseDir,
   };

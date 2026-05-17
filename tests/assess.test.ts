@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { loadAssessmentCase } from "../src/assess.js";
 import { averageDimensionScore, scoreDimensions } from "../src/assessScoring.js";
 import { detectFrameworkSignals, readScriptInventory } from "../src/assessRuntime.js";
 import { loadRepoContext } from "../src/loadRepoContext.js";
@@ -80,6 +81,64 @@ test("repo context respects case ignore globs", async () => {
     );
   } finally {
     await rm(repoPath, { recursive: true, force: true });
+  }
+});
+
+test("assessment cases support GitHub repo sources", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "ghostbench-remote-case-"));
+  try {
+    const casePath = path.join(dir, "remote-readiness.json");
+    await writeFile(
+      casePath,
+      `${JSON.stringify(
+        {
+          id: "remote-readiness",
+          title: "Remote readiness",
+          repoUrl: "https://github.com/octocat/Hello-World.git",
+          repoRef: "master",
+          appBrief: "A small remote repository used for readiness assessment.",
+          expectedAreas: ["README"],
+          ignoreGlobs: ["reports/**"],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const assessmentCase = await loadAssessmentCase(casePath);
+
+    assert.deepEqual(assessmentCase.repoSource, {
+      type: "github",
+      url: "https://github.com/octocat/Hello-World.git",
+      ref: "master",
+    });
+    assert.deepEqual(assessmentCase.expectedAreas, ["README"]);
+    assert.deepEqual(assessmentCase.ignoreGlobs, ["reports/**"]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("assessment cases reject ambiguous repo sources", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "ghostbench-ambiguous-case-"));
+  try {
+    const casePath = path.join(dir, "ambiguous-readiness.json");
+    await writeFile(
+      casePath,
+      `${JSON.stringify({
+        id: "ambiguous-readiness",
+        title: "Ambiguous readiness",
+        repoPath: "../local",
+        repoUrl: "https://github.com/octocat/Hello-World.git",
+        appBrief: "Ambiguous repository source.",
+      })}\n`,
+      "utf8",
+    );
+
+    await assert.rejects(() => loadAssessmentCase(casePath), /Use either repoPath or repoUrl, not both/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
 });
 

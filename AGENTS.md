@@ -32,7 +32,9 @@ pnpm install
 pnpm typecheck
 pnpm test
 pnpm ghostbench assess ./fixture-repos/coherent-vite-app --brief "Inventory Desk is an operations dashboard for tracking low-stock items, supplier status, and reorder decisions."
+pnpm ghostbench assess --repo-url https://github.com/owner/repo.git --repo-ref main --brief "Describe the app's product intent."
 pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check
+pnpm ghostbench assess --case cases/remote-readiness.json --policy inspect
 pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check --output json
 pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check --baseline <assessment.json>
 pnpm ghostbench doctor
@@ -158,7 +160,8 @@ Assessment cases are JSON and may include:
 
 - `id`
 - `title`
-- `repoPath`
+- `repoPath` or `repoUrl`
+- `repoRef`
 - `appBrief` or legacy-compatible `task`
 - `expectedAreas` or legacy-compatible `expectedFiles`
 - `ignoreGlobs`
@@ -282,7 +285,7 @@ Ghostbench must retain the ability to scan existing local repositories supplied 
 
 A user-supplied `repoPath` may point anywhere the user can read, including sibling directories outside the Ghostbench checkout.
 
-GitHub repositories may be supplied with `repoUrl` and optional `repoRef` in legacy eval cases, or with `--repo-url` and optional `--repo-ref` for `run`, `compare`, and `init-case`.
+GitHub repositories may be supplied with `repoUrl` and optional `repoRef` in readiness assessment cases and legacy eval cases, or with `--repo-url` and optional `--repo-ref` for `assess`, `run`, `compare`, and `init-case`.
 
 GitHub repo support should use local `git` clone/fetch behavior, not GitHub API calls.
 
