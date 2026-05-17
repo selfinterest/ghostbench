@@ -6,7 +6,8 @@ import path from "node:path";
 import { averageDimensionScore, scoreDimensions } from "../src/assessScoring.js";
 import { detectFrameworkSignals, readScriptInventory } from "../src/assessRuntime.js";
 import { loadRepoContext } from "../src/loadRepoContext.js";
-import type { ExecutionCheck, RepoContext } from "../src/types.js";
+import { compareReadinessAssessments, hasReadinessRegression } from "../src/regression.js";
+import type { ExecutionCheck, ReadinessAssessment, RepoContext } from "../src/types.js";
 
 test("assessment helpers detect scripts, framework signals, and readiness evidence", () => {
   const repoContext: RepoContext = {
@@ -81,3 +82,99 @@ test("repo context respects case ignore globs", async () => {
     await rm(repoPath, { recursive: true, force: true });
   }
 });
+
+test("readiness regression detects new concerns and dimension deltas", () => {
+  const previous = assessmentFixture({
+    score: 7.8,
+    blockingConcerns: [],
+    concerns: ["No README, AGENTS, CONTEXT, or docs files were found for future agent orientation."],
+    dimensions: [
+      dimensionFixture("runtime-health", "Runtime Health", 8, [], ["pnpm run build passed."]),
+      dimensionFixture("agent-readiness", "Agent Readiness", 5, ["No README, AGENTS, CONTEXT, or docs files were found for future agent orientation."], []),
+    ],
+  });
+  const current = assessmentFixture({
+    score: 6.9,
+    blockingConcerns: ["pnpm run build failed."],
+    concerns: [
+      "No README, AGENTS, CONTEXT, or docs files were found for future agent orientation.",
+      "No obvious loading, empty, error, accessibility, or responsive-state handling was found.",
+    ],
+    dimensions: [
+      dimensionFixture("runtime-health", "Runtime Health", 5, ["pnpm run build failed."], []),
+      dimensionFixture("agent-readiness", "Agent Readiness", 6, [], ["Agent-readable documentation exists: README.md."]),
+    ],
+  });
+
+  const regression = compareReadinessAssessments(previous, current, "reports/previous.json");
+
+  assert.equal(regression.status, "regressed");
+  assert.equal(regression.previousScore, 7.8);
+  assert.equal(regression.currentScore, 6.9);
+  assert.deepEqual(
+    regression.newBlockingConcerns.map((concern) => concern.text),
+    ["pnpm run build failed."],
+  );
+  assert.deepEqual(
+    regression.newConcerns.map((concern) => concern.text),
+    ["No obvious loading, empty, error, accessibility, or responsive-state handling was found."],
+  );
+  assert.deepEqual(
+    regression.improved.map((item) => item.name),
+    ["Agent Readiness"],
+  );
+  assert.deepEqual(
+    regression.regressed.map((item) => item.name),
+    ["Runtime Health"],
+  );
+  assert.equal(hasReadinessRegression(regression), true);
+});
+
+function dimensionFixture(
+  id: ReadinessAssessment["dimensions"][number]["id"],
+  name: string,
+  score: number,
+  concerns: string[],
+  evidence: string[],
+): ReadinessAssessment["dimensions"][number] {
+  return { id, name, score, maxScore: 10, concerns, evidence };
+}
+
+function assessmentFixture(
+  overrides: Pick<ReadinessAssessment, "score" | "blockingConcerns" | "concerns" | "dimensions">,
+): ReadinessAssessment {
+  return {
+    id: "fixture-readiness",
+    title: "Fixture readiness",
+    repoPath: "/tmp/fixture",
+    appBrief: "Fixture app",
+    briefSource: "test",
+    executionPolicy: "check",
+    repoContext: {
+      repoPath: "/tmp/fixture",
+      repoSource: "/tmp/fixture",
+      exists: true,
+      ignoreGlobs: [],
+      files: [],
+      warnings: [],
+      totalEligibleFiles: 0,
+      scannedFiles: 0,
+    },
+    expectedAreas: [],
+    frameworkSignals: [],
+    scriptInventory: {
+      packageManager: "pnpm",
+      scripts: {},
+      dependencies: [],
+      devDependencies: [],
+      warnings: [],
+    },
+    executionChecks: [],
+    verdict: overrides.blockingConcerns.length > 0 ? "not-ready" : "conditionally-ready",
+    evidence: [],
+    remediationGuidance: [],
+    warnings: [],
+    reportPath: "reports/current.json",
+    ...overrides,
+  };
+}

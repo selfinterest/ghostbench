@@ -4,7 +4,14 @@ import path from "node:path";
 import { assessRepository, loadAssessmentCase } from "./assess.js";
 import { githubRepoOverride, runCase } from "./runCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
-import { renderConsoleSummary, renderReadinessConsoleSummary, renderReadinessJson } from "./report.js";
+import {
+  renderConsoleSummary,
+  renderReadinessConsoleSummary,
+  renderReadinessJson,
+  renderReadinessRegressionJson,
+  renderReadinessRegressionSummary,
+} from "./report.js";
+import { compareReadinessAssessments, hasReadinessRegression, loadBaselineAssessment } from "./regression.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
 import { renderDoctorSummary, runDoctor } from "./doctor.js";
 import type { ExecutionPolicy, ReportFormat } from "./types.js";
@@ -17,6 +24,19 @@ async function main(): Promise<void> {
     if (command === "assess") {
       const assessmentOptions = await parseAssessArgs(commandArgs);
       const assessment = await assessRepository(assessmentOptions);
+      if (assessmentOptions.baselinePath) {
+        const baseline = await loadBaselineAssessment(assessmentOptions.baselinePath);
+        const regression = compareReadinessAssessments(baseline, assessment, assessmentOptions.baselinePath);
+        console.log(
+          assessmentOptions.reportFormat === "json"
+            ? renderReadinessRegressionJson(regression).trimEnd()
+            : renderReadinessRegressionSummary(regression),
+        );
+        if (assessment.executionPolicy === "check" && hasReadinessRegression(regression)) {
+          process.exitCode = 1;
+        }
+        return;
+      }
       console.log(
         assessmentOptions.reportFormat === "json"
           ? renderReadinessJson(assessment).trimEnd()
@@ -62,6 +82,7 @@ async function main(): Promise<void> {
   pnpm ghostbench assess <repoPath> --brief-file <path> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> --output json
+  pnpm ghostbench assess <repoPath> --case <casePath> --baseline <assessment.json>
   pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
   pnpm ghostbench doctor
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
@@ -84,6 +105,7 @@ interface CliAssessOptions {
   provider?: "openai";
   model?: string;
   output: ReportFormat;
+  baselinePath?: string;
 }
 
 async function parseAssessArgs(args: string[]): Promise<{
@@ -97,6 +119,7 @@ async function parseAssessArgs(args: string[]): Promise<{
   policy: ExecutionPolicy;
   provider?: ProviderOptions;
   reportFormat: ReportFormat;
+  baselinePath?: string;
 }> {
   const [repoArg, ...rest] = args;
   if (!repoArg) {
@@ -163,6 +186,15 @@ async function parseAssessArgs(args: string[]): Promise<{
       index += 1;
       continue;
     }
+    if (arg === "--baseline") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--baseline requires a value");
+      }
+      options.baselinePath = path.resolve(value);
+      index += 1;
+      continue;
+    }
     if (arg === "--model") {
       const value = rest[index + 1];
       if (!value) {
@@ -206,6 +238,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       policy: options.policy,
       provider,
       reportFormat: options.output,
+      baselinePath: options.baselinePath,
     };
   }
 
@@ -223,6 +256,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       policy: options.policy,
       provider,
       reportFormat: options.output,
+      baselinePath: options.baselinePath,
     };
   }
 
@@ -238,6 +272,7 @@ async function parseAssessArgs(args: string[]): Promise<{
     policy: options.policy,
     provider,
     reportFormat: options.output,
+    baselinePath: options.baselinePath,
   };
 }
 

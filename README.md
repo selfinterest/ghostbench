@@ -32,6 +32,14 @@ Emit a machine-readable JSON assessment and write a JSON report:
 pnpm ghostbench assess . --case cases/inventory-desk-readiness.json --policy check --output json
 ```
 
+Compare the current assessment against a previous JSON report:
+
+```bash
+pnpm ghostbench assess . --case cases/inventory-desk-readiness.json --policy check --baseline reports/previous.json
+```
+
+With `--baseline`, Ghostbench reports score movement, new and resolved concerns, and dimension-level improvements or regressions. Under `--policy check`, a detected regression exits nonzero so the command can act as a quality ratchet in CI or agent workflows.
+
 Run a self-assessment of the Ghostbench checkout:
 
 ```bash
@@ -119,6 +127,8 @@ reports/{assessmentId}-{timestamp}.json
 ```
 
 Generated reports are gitignored by default.
+
+Baseline comparison accepts a prior JSON readiness report produced by `--output json`. The current run still writes its normal markdown or JSON report, then compares stable concern IDs and dimension scores against the baseline.
 
 ## Fixture Repositories
 

@@ -173,6 +173,40 @@ export interface ReadinessAssessment {
   reportPath: string;
 }
 
+export type ReadinessRegressionStatus = "improved" | "regressed" | "unchanged";
+
+export interface ConcernDelta {
+  id: string;
+  text: string;
+}
+
+export interface DimensionDelta {
+  id: ReadinessDimensionId;
+  name: string;
+  previousScore: number;
+  currentScore: number;
+  delta: number;
+  evidence: string[];
+  concerns: string[];
+}
+
+export interface ReadinessRegression {
+  status: ReadinessRegressionStatus;
+  previousScore: number;
+  currentScore: number;
+  delta: number;
+  previousVerdict: ReadinessVerdict;
+  currentVerdict: ReadinessVerdict;
+  newBlockingConcerns: ConcernDelta[];
+  newConcerns: ConcernDelta[];
+  resolvedBlockingConcerns: ConcernDelta[];
+  resolvedConcerns: ConcernDelta[];
+  improved: DimensionDelta[];
+  regressed: DimensionDelta[];
+  baselineReportPath?: string;
+  currentReportPath: string;
+}
+
 export interface ProviderReadinessReview {
   provider: "openai";
   model: string;
