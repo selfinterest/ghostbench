@@ -34,10 +34,10 @@ pnpm ghostbench assess ./fixture-repos/coherent-vite-app --case cases/inventory-
 
 `sandboxed` and `trusted` policies are reserved terms in the MVP; they do not yet install dependencies or launch dev servers.
 
-Add an OpenAI provider review to the deterministic readiness report:
+Add an OpenAI provider review to the deterministic readiness report. `OPENAI_API_KEY` must already be set in the environment:
 
 ```bash
-OPENAI_API_KEY=... pnpm ghostbench assess . --brief "Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents understand a repository before proposing changes." --policy check --provider openai --model <model>
+pnpm ghostbench assess . --brief "Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents understand a repository before proposing changes." --policy check --provider openai --model <model>
 ```
 
 Provider mode is explicit and additive. Ghostbench still computes the deterministic readiness score locally, then asks OpenAI for a bounded review using the scanned repo context and assessment results.
