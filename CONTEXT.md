@@ -77,11 +77,11 @@ An execution policy that runs low-risk declared checks only when dependencies ar
 _Avoid_: Safe mode, test mode
 
 **Sandboxed Policy**:
-An execution policy that may install dependencies or run declared scripts in a constrained temporary workspace.
+A reserved execution policy for future constrained temporary workspace behavior; in the current MVP it records a skipped execution check.
 _Avoid_: Container mode, isolated mode
 
 **Trusted Policy**:
-An execution policy that may install dependencies or run declared scripts directly in the target repository after explicit user opt-in.
+A reserved execution policy for future explicit in-repository install/run behavior; in the current MVP it records a skipped execution check.
 _Avoid_: Full mode, unsafe mode
 
 **Static Evaluation**:
@@ -213,7 +213,7 @@ A caveat about a run or repo context that may limit judgment confidence without 
 _Avoid_: Concern, error
 
 **Report**:
-A durable markdown artifact containing judgments for an eval case.
+A durable markdown or JSON artifact containing judgments or readiness assessment results for an eval case.
 _Avoid_: Console output, log
 
 **Console Summary**:
@@ -267,7 +267,7 @@ _Avoid_: Implementation plan, rewrite plan
 - An **Interactive Check** is an optional **Execution Check**.
 - An **Execution Evaluation** has one **Execution Policy**.
 - An **Execution Policy** is one of **Inspect Policy**, **Check Policy**, **Sandboxed Policy**, or **Trusted Policy**.
-- A **Static Evaluation** includes one **Repo Context** and no **Execution Checks**.
+- A **Static Evaluation** includes one **Repo Context** and no command-running **Execution Checks**; it may record a skipped policy check.
 - A **Warning** may explain why an **Execution Check** could not run.
 - A **Warning** may explain that an **Inferred Brief** was used.
 - A **Warning** may explain why a **Reduced Assessment** was produced.
@@ -276,7 +276,7 @@ _Avoid_: Implementation plan, rewrite plan
 - A **Run** evaluates one **Vibe-Coded Application Repository** by default.
 - A **Run** may produce a **Reduced Assessment** when the evaluated **Vibe-Coded Repository** is not a **Vibe-Coded Application Repository**.
 - A **Run** may evaluate one or more **Agent Responses** when preserving an older agent-response scenario.
-- A **Run** produces one or more **Judgments**.
+- A **Run** produces one **Readiness Assessment** for each evaluated **Vibe-Coded Application Repository**, or one or more **Judgments** when preserving an older agent-response scenario.
 - A **Run** has one **Ranking** only when comparing multiple evaluated artifacts.
 - A **Run** produces one **Readiness Assessment** for each evaluated **Vibe-Coded Application Repository**.
 - A **Run** surfaces zero or more **Warnings**.
@@ -292,16 +292,16 @@ _Avoid_: Implementation plan, rewrite plan
 - A **Judgment** has one **Score**.
 - A **Judgment** has exactly one **Verdict**.
 - A **Readiness Assessment** has one **Ready Verdict**, **Conditionally Ready Verdict**, **Not Ready Verdict**, or **Unknown Verdict**.
-- A **Readiness Assessment** includes one **Judgment**.
+- A **Readiness Assessment** includes dimension-level scores, evidence, concerns, blocking concerns, and a readiness verdict.
 - A **Readiness Assessment** evaluates **Product Coherence**, **Runtime Health**, **UX Completeness**, **Maintainability**, **Safety**, and **Agent Readiness**.
 - A **Readiness Assessment** may include **Remediation Guidance**.
 - **Remediation Guidance** is grounded in **Evidence**, **Concerns**, or **Execution Checks**.
 - A **Judgment** contains zero or more **Evidence** entries.
 - A **Judgment** contains zero or more **Concerns**.
 - A **Blocking Concern** is a **Concern** that blocks readiness because it prevents installation, launch, core user flow validation, safe handoff, agent continuation, or required configuration.
-- A **Report** contains one or more **Judgments**.
-- A **Report** contains one **Ranking** when its **Run** compares multiple evaluated artifacts.
-- A **Console Summary** summarizes one or more **Judgments**.
+- A **Report** contains one **Readiness Assessment** or one or more legacy **Judgments**.
+- A **Report** contains one **Ranking** when its **Run** compares multiple legacy evaluated artifacts.
+- A **Console Summary** summarizes one **Readiness Assessment** or one or more legacy **Judgments**.
 - A **Report** surfaces zero or more **Warnings**.
 - A **Console Summary** surfaces zero or more **Warnings**.
 - **Evidence** supports **Repo Understanding**.
