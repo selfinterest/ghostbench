@@ -163,6 +163,17 @@ export interface ReadinessAssessment {
   concerns: string[];
   blockingConcerns: string[];
   remediationGuidance: string[];
+  providerReview?: ProviderReadinessReview;
   warnings: string[];
   reportPath: string;
+}
+
+export interface ProviderReadinessReview {
+  provider: "openai";
+  model: string;
+  summary: string;
+  evidence: string[];
+  concerns: string[];
+  recommendations: string[];
+  rawText: string;
 }
