@@ -2,11 +2,15 @@
 
 ## Project
 
-Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents understand a repository before proposing changes.
+Ghostbench is a local-first TypeScript CLI for assessing vibe-coded application repositories.
 
-It is not a chatbot. It is an eval harness for repo-aware coding agents.
+Its primary workflow answers one question for an app owner: is this repository ready to ship, hand off, or continue developing with agents?
 
-The default workflow should run entirely offline using fixture responses. OpenAI may be called only when the user explicitly runs provider mode with `--provider openai --model <model>`.
+The default workflow is deterministic and offline. Ghostbench scans a repository, detects framework signals, inventories package scripts, runs only the execution checks allowed by the selected policy, and writes a readiness report with evidence, concerns, blocking concerns, dimension scores, and remediation guidance.
+
+The older repo-understanding workflow for judging saved agent responses is still supported through `run` and `compare`, but new product work should target `assess`.
+
+OpenAI may be called only when the user explicitly supplies `--provider openai --model <model>`.
 
 ## Tech Stack
 
@@ -16,8 +20,8 @@ The default workflow should run entirely offline using fixture responses. OpenAI
 - Plain modules preferred
 - No web framework
 - No database
-- No external model calls in the default fixture workflow
-- OpenAI SDK is allowed for explicit provider-mode Agent Response generation
+- No external model calls in default workflows
+- OpenAI SDK is allowed only for explicit provider-assisted assessment or legacy provider response generation
 
 ## Core Commands
 
@@ -26,15 +30,20 @@ Expected commands:
 ```bash
 pnpm install
 pnpm typecheck
+pnpm test
+pnpm ghostbench assess ./fixture-repos/coherent-vite-app --brief "Inventory Desk is an operations dashboard for tracking low-stock items, supplier status, and reorder decisions."
+pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check
+pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check --output json
+pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check --baseline <assessment.json>
+pnpm ghostbench doctor
 pnpm ghostbench run cases/bagshui-layout.json
-pnpm ghostbench run cases/bagshui-layout.json --provider openai --model <model>
 pnpm ghostbench compare cases/bagshui-layout.json
 pnpm ghostbench init-case
 ```
 
 If scripts do not exist yet, create them.
 
-## Desired File Structure
+## Current File Structure
 
 ```text
 ghostbench/
@@ -46,22 +55,34 @@ ghostbench/
   src/
     cli.ts
     types.ts
-    loadCase.ts
     loadRepoContext.ts
+    assess.ts
+    assessRuntime.ts
+    assessScoring.ts
+    doctor.ts
+    regression.ts
+    resolveRepoSource.ts
+    loadCase.ts
     runCase.ts
     judge.ts
     report.ts
+    providers/
   cases/
+    ghostbench-readiness.json
+    inventory-desk-readiness.json
     bagshui-layout.json
     nightcrawler-template-update.json
+  fixture-repos/
+    coherent-vite-app/
+    messy-vibe-app/
   fixtures/
-    bagshui-good-response.md
-    bagshui-bad-response.md
-    nightcrawler-good-response.md
-    nightcrawler-bad-response.md
+  tests/
+  docs/adr/
   reports/
     .gitkeep
 ```
+
+Generated `reports/*.md` and `reports/*.json` are gitignored. Keep `reports/.gitkeep`.
 
 ## Implementation Standards
 
@@ -69,18 +90,24 @@ Keep the code small, boring, and legible.
 
 Prefer explicit TypeScript types over clever abstractions.
 
-Avoid unnecessary dependencies. A tiny CLI parser is fine. Do not add Commander unless there is a clear benefit.
+Avoid unnecessary dependencies. The CLI uses a small hand-rolled parser; do not add Commander unless there is a clear benefit.
 
 Every module should have one job:
 
 - `cli.ts`: parse commands and call the right workflow
 - `types.ts`: shared TypeScript interfaces
-- `loadCase.ts`: read and validate JSON eval cases
 - `loadRepoContext.ts`: scan a target repo safely and return bounded context
-- `runCase.ts`: orchestrate case loading, repo scanning, fixture loading, judging, and reporting
-- `providers/`: generate optional live Agent Responses when provider mode is explicitly requested
-- `judge.ts`: deterministic heuristic judging for MVP
-- `report.ts`: console and markdown report generation
+- `assess.ts`: orchestrate readiness assessment
+- `assessRuntime.ts`: detect framework/script signals and run allowed execution checks
+- `assessScoring.ts`: deterministic readiness scoring and remediation guidance
+- `doctor.ts`: self-check Ghostbench project health
+- `regression.ts`: compare readiness assessments against JSON baselines
+- `resolveRepoSource.ts`: resolve local and GitHub repo sources to a local checkout
+- `loadCase.ts`: read and validate legacy agent-response eval cases
+- `runCase.ts`: orchestrate the legacy agent-response workflow
+- `judge.ts`: deterministic heuristic judging for legacy agent responses
+- `report.ts`: console, markdown, JSON, and regression report rendering
+- `providers/`: explicit OpenAI provider integration
 
 ## Repo Scanner Requirements
 
@@ -96,7 +123,7 @@ Every module should have one job:
   - `coverage`
   - `.next`
   - `vendor`
-- Include only likely source/config/documentation files:
+- Include likely source/config/documentation files:
   - `.ts`
   - `.tsx`
   - `.js`
@@ -107,230 +134,197 @@ Every module should have one job:
   - `.html`
   - `.lua`
   - `.xml`
+  - `.yaml`
+  - `.yml`
+  - common extensionless docs such as `README`, `LICENSE`, and `CHANGELOG`
+  - `.env`-style files so safety checks can detect committed secrets
 - Bound scanning:
   - Max 200 files
   - Max 20 KB per file
+- Apply case or assessment `ignoreGlobs`
 - If `repoPath` does not exist, continue with a warning instead of failing the whole run.
 
-## Judge Requirements
+## Assessment Workflow
 
-For the MVP, implement a deterministic heuristic judge.
+`assess` is the primary workflow.
 
-Do not use an LLM yet.
+Supported brief sources:
 
-The judge should:
+- `--brief <text>`
+- `--brief-file <path>`
+- `--case <casePath>`
+
+Assessment cases are JSON and may include:
+
+- `id`
+- `title`
+- `repoPath`
+- `appBrief` or legacy-compatible `task`
+- `expectedAreas` or legacy-compatible `expectedFiles`
+- `ignoreGlobs`
+
+`expectedAreas` are advisory. They may name repository paths, app surfaces, workflows, or configuration areas, and they are not hidden gold labels.
+
+Readiness dimensions:
+
+- Product Coherence
+- Runtime Health
+- UX Completeness
+- Maintainability
+- Safety
+- Agent Readiness
+
+Readiness verdicts:
+
+- `ready`
+- `conditionally-ready`
+- `not-ready`
+- `unknown`
+
+## Execution Policies
+
+- `inspect`: scan repository contents without running commands.
+- `check`: run declared `typecheck`, `build`, and `test` scripts only if `node_modules` already exists.
+- `sandboxed`: reserved term; currently skipped with a clear message.
+- `trusted`: reserved term; currently skipped with a clear message.
+
+Default assessment must not install dependencies, launch dev servers, or call external APIs.
+
+Under `--policy check`, execution checks may run local package scripts in the target repository only when dependencies are already present.
+
+## Provider Mode
+
+Provider mode is explicit and additive.
+
+For readiness assessment:
+
+```bash
+pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
+```
+
+Ghostbench still computes the deterministic readiness assessment locally, then asks OpenAI for a bounded provider-assisted review using the scanned repo context and assessment results.
+
+For the legacy agent-response workflow:
+
+```bash
+pnpm ghostbench run <casePath> --provider openai --model <model>
+pnpm ghostbench compare <casePath> --provider openai --model <model>
+```
+
+OpenAI provider mode uses `OPENAI_API_KEY` from the environment and fails clearly when it is missing. Provider or network/API failures are runtime failures, not repo warnings.
+
+## Reports
+
+Every successful readiness assessment writes a durable report under:
+
+```text
+reports/{assessmentId}-{timestamp}.md
+```
+
+With `--output json`, Ghostbench writes:
+
+```text
+reports/{assessmentId}-{timestamp}.json
+```
+
+Readiness reports include the app brief, repo summary, warnings, framework signals, script inventory, execution checks, dimension scores, blocking concerns, evidence, concerns, provider review when present, and remediation guidance.
+
+Console summaries should stay compact: verdict, score, policy, report path, warnings, blocking concerns, dimension scores, and the highest-signal next fix.
+
+Baseline comparison accepts a prior JSON readiness report produced by `--output json`. Under `--policy check`, a detected regression exits nonzero so the command can act as a quality ratchet.
+
+## Doctor
+
+`pnpm ghostbench doctor` should verify:
+
+- package scripts
+- README coverage
+- agent instructions
+- report ignore rules
+- fixture repositories
+- check-policy self-assessment
+- provider safety
+
+It exits nonzero if any doctor check fails.
+
+## Legacy Agent-Response Workflow
+
+`run` and `compare` remain available for preserved repo-understanding eval cases.
+
+Legacy case JSON should include:
+
+- `id`
+- `title`
+- `repoPath` or `repoUrl`
+- `task`
+- `expectedFiles`
+- `ignoreGlobs`
+- `rubric`
+- `responses`
+
+Each response entry should include a human-readable `name` and a `fixturePath`. All paths inside a legacy eval case, including `repoPath` and `fixturePath`, resolve relative to the case file.
+
+Legacy judging should:
 
 - Score each rubric item from 0 to 10
 - Apply rubric weights
 - Look for evidence in the agent response and repo context
-- Penalize invented files not found in repo context
+- Penalize invented files or symbols not found in available repo context
 - Penalize unsupported confident claims
-- Reward concrete implementation plans grounded in files, functions, or observed repo structure
-- Produce:
-  - raw score
-  - max score
-  - weighted score
-  - verdict: `strong`, `acceptable`, or `weak`
-  - evidence strings
-  - concern strings
+- Reward bounded implementation plans grounded in files, functions, or observed repo structure
+- Produce raw score, max score, weighted score, verdict, evidence, and concerns
 
-Make the judge intentionally replaceable. It should be obvious how to later swap in an LLM judge.
+`compare` uses the same execution path as `run`; it changes console emphasis and warns when ranking is not meaningful.
 
-## Settled MVP Decisions
+## Repo Source Boundary
 
-These choices came out of the domain grilling session. Treat them as implementation guidance unless a later ADR supersedes them.
+Ghostbench must retain the ability to scan existing local repositories supplied by `repoPath`.
 
-### Case Format
+A user-supplied `repoPath` may point anywhere the user can read, including sibling directories outside the Ghostbench checkout.
 
-- Eval cases are JSON for the MVP, but `CONTEXT.md` keeps the domain language format-agnostic.
-- Case JSON should include `responses`, not `fixtures`.
-- Each response entry should include a human-readable `name` and a `fixturePath`.
-- All paths inside an eval case, including `repoPath` and `fixturePath`, should resolve relative to the case file.
-- `responses` are embedded in the case file as an MVP convenience. Conceptually, a run evaluates selected agent responses against an eval case.
-- Every MVP case must include:
-  - a stable human-readable slug `id`
-  - a user-style `task`
-  - at least one response
-  - at least one rubric item
-- `expectedFiles` are optional and advisory. They may name files, directories, or repository areas, including documentation.
-- `expectedFiles` should appear in reports, but should not be treated as hidden gold labels.
-- Fixture responses are markdown text files for the MVP.
-- Provider-generated responses may be added to a run only when explicitly requested from the CLI.
-- Provider mode is additive: existing fixture responses should still be evaluated.
-- Missing, unreadable, or empty fixture responses are validation errors.
-- Missing target repositories are warnings, not validation errors.
-- Malformed case JSON and missing rubric items are validation errors.
-- Rubric item weights are positive relative weights. They do not need to sum to 1 or 100.
-- Rubric item scores are constrained to 0 through 10.
-- Rubric item descriptions should be evaluative, not imperative.
+GitHub repositories may be supplied with `repoUrl` and optional `repoRef` in legacy eval cases, or with `--repo-url` and optional `--repo-ref` for `run`, `compare`, and `init-case`.
 
-### Run Behavior
+GitHub repo support should use local `git` clone/fetch behavior, not GitHub API calls.
 
-- `run` and `compare` use the same execution path.
-- `compare` changes console emphasis; it does not create a different domain artifact.
-- A run can evaluate one or more agent responses.
-- `--provider openai --model <model>` generates one additional Agent Response named `OpenAI <model>`.
-- OpenAI provider mode uses `OPENAI_API_KEY` from the environment and fails clearly when it is missing.
-- Provider or network/API failures are runtime failures, not repo warnings.
-- Ranking exists only when multiple agent responses are evaluated.
-- `compare` with one response should still run and emit a warning that ranking is not meaningful.
-- CLI runs should exit nonzero for invalid inputs or runtime failures, not because all responses are weak.
-- `init-case` should create a richer valid template at `cases/new-case.json` and must not overwrite an existing file.
-- `init-case --repo-url <url> --repo-ref <ref> --id <slug> --title <title>` should create a remote-repo case, suggest expected files from the scanned repo context, and create placeholder grounded/generic fixture files.
+Remote repo support should resolve to a local checkout before scanning, then reuse `loadRepoContext.ts`.
 
-### Repo Source Boundary
+Do not copy, clone, cache, or vendor target repositories inside the Ghostbench project directory. Acquired repository material must live outside the Ghostbench checkout, such as under the user cache directory.
 
-- Ghostbench must retain the ability to scan existing local repositories supplied by `repoPath`.
-- A user-supplied `repoPath` may point anywhere the user can read, including sibling directories outside the Ghostbench checkout.
-- GitHub repositories may be supplied with `repoUrl` and optional `repoRef` in the case file, or with `--repo-url` and optional `--repo-ref` at the CLI.
-- GitHub repo support should use local `git` clone/fetch behavior, not GitHub API calls.
-- Remote repo support should resolve to a local checkout before scanning, then reuse `loadRepoContext.ts`.
-- Do not copy, clone, cache, or vendor target repositories inside the Ghostbench project directory.
-- Acquired repository material must live outside the Ghostbench checkout, such as under a temp workspace or user cache directory.
-- Keep Ghostbench source, eval cases, fixtures, and reports separate from target repository contents.
+## Sample Cases And Fixtures
 
-### Judging Heuristics
+Current readiness cases include:
 
-- Use both rubric-specific signals and general Ghostbench heuristics.
-- Extract meaningful keywords from the task and rubric descriptions, dropping common stopwords.
-- Treat expected-file matches as stronger evidence than keyword overlap.
-- Parse likely file paths from agent responses conservatively.
-- Parse simple backticked symbols and function-like names conservatively.
-- Search extracted symbols against file paths and included file contents in the repo context.
-- Phrase absent path or symbol concerns as "not found in available repo context", not as absolute nonexistence.
-- Penalize unsupported confident claims more than cautious guesses.
-- Reward specific inspection plans; do not reward generic "I would inspect the code" language much.
-- Reward edge-case awareness as a weak general signal, with task/rubric-specific edge cases carrying more weight.
-- Penalize generic plans that could apply to any repository.
-- Penalize overbroad rewrite language unless the task asks for that scope.
-- Keep scores bounded. Concerns should not drive numeric scores below 0.
-- Do not globally cap verdicts because of one invented file; repeated or central invented references should strongly hurt the verdict.
-- Verdicts use fixed global thresholds for the MVP.
-- Rank by weighted score with deterministic tie-breakers, such as verdict and stable response name.
+- `cases/ghostbench-readiness.json`
+- `cases/inventory-desk-readiness.json`
 
-### Reporting
+Current fixture repositories include:
 
-- Generate one markdown report and one console summary for every successful run.
-- Markdown reports are the only durable run record for the MVP.
-- Keep generated reports under `reports/{caseId}-{timestamp}.md`.
-- Commit `reports/.gitkeep`, but gitignore generated `reports/*.md`.
-- Reports should include warnings before score tables.
-- Reports should include task text, repo path, repo context summary, expected files when present, response names, response sources, per-rubric-item scores, evidence, concerns, warnings, and ranking when multiple responses were evaluated.
-- Reports should order response result sections by ranking, not input order.
-- Reports should show full evidence and concern strings.
-- Reports should not include full agent response text by default.
-- Console summaries should be compact: ranking when available, scores, verdicts, warnings, and the highest-signal concern.
-- Console summaries should avoid "winner"; use "ranking" or "top response".
+- `fixture-repos/coherent-vite-app`
+- `fixture-repos/messy-vibe-app`
 
-## Report Requirements
+Legacy agent-response cases include:
 
-Generate both:
-
-1. Console summary
-2. Markdown report under:
-
-```text
-reports/{caseId}-{timestamp}.md
-```
-
-The report should include:
-
-- Case title
-- Task
-- Repo path
-- Repo context summary
-- Agent response names
-- Score table
-- Evidence
-- Concerns
-- Final ranking
-
-## CLI Commands
-
-Implement:
-
-```bash
-pnpm ghostbench run <casePath>
-```
-
-Runs the case against fixture responses and writes a report.
-
-```bash
-pnpm ghostbench run <casePath> --provider openai --model <model>
-```
-
-Runs fixture responses plus one OpenAI-generated Agent Response and writes a report.
-
-```bash
-pnpm ghostbench compare <casePath>
-```
-
-Same execution path as `run`, but the console output should emphasize ranking and comparison.
-
-```bash
-pnpm ghostbench compare <casePath> --provider openai --model <model>
-```
-
-Compares fixture responses plus one OpenAI-generated Agent Response.
-
-```bash
-pnpm ghostbench init-case
-```
-
-Writes a starter JSON case to `cases/new-case.json` if it does not already exist.
-
-## Sample Cases
-
-Create two sample cases:
-
-1. `bagshui-layout.json`
-   - Task: make the Bagshui addon window as compact as possible by placing categories horizontally when useful.
-   - Good response should identify layout behavior, propose a bounded change, mention overflow/resizing edge cases, and avoid unrelated rewrites.
-   - Bad response should invent files, suggest a vague rewrite, and ignore edge cases.
-
-2. `nightcrawler-template-update.json`
-   - Task: reason about an MCP/Nightingale/Nightcrawler-style repo where cached GCS extracts are compared against a nursing model repo and used to generate update PRs.
-   - Good response should emphasize bounded repo understanding, artifact comparison, stable identifiers, cache behavior, and reviewable PR generation.
-   - Bad response should overfit to generic RAG, suggest a vector database as the primary store without justification, or skip determinism/versioning concerns.
-
-## README Requirements
-
-The README should explain:
-
-- What Ghostbench is
-- Why repo-aware coding-agent evals matter
-- How to install
-- How to run sample cases
-- How to add a new case
-- How reports work
-- Future roadmap:
-  - Additional model provider adapters, including Anthropic
-  - LLM-as-judge
-  - MCP server exposing:
-    - `run_eval_case`
-    - `compare_model_runs`
-    - `inspect_failure`
-  - GitHub PR comment mode
-  - “grill mode” that asks follow-up questions before scoring
+- `cases/bagshui-layout.json`
+- `cases/nightcrawler-template-update.json`
 
 ## Done Means
 
-Before stopping:
+Before stopping after code or doc changes:
 
-- Run `pnpm install`
+- Run `pnpm install` when dependency state may be stale
 - Run `pnpm typecheck`
-- Run `pnpm ghostbench run cases/bagshui-layout.json`
-- If `OPENAI_API_KEY` is present, run a provider smoke test against a small case. If not present, document that provider smoke was skipped.
+- Run `pnpm test`
+- Run `pnpm ghostbench doctor`
+- Run `pnpm ghostbench assess . --case cases/ghostbench-readiness.json --policy check`
+- If `OPENAI_API_KEY` is present and provider code changed, run a provider smoke test against a small case. If not present, document that provider smoke was skipped.
 - Fix any errors
-- Show final file tree
-- Show exact commands to run
-- Summarize the architecture concisely
+- Summarize the architecture and exact commands concisely
 
 ## Do Not Do
 
 - Do not build a web UI
 - Do not add a database
-- Do not call external APIs
+- Do not call external APIs unless explicit provider mode was requested
 - Do not call OpenAI unless provider mode was explicitly requested
 - Do not require a real Bagshui or Nightcrawler repo to exist
 - Do not over-engineer provider abstractions
