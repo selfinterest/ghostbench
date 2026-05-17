@@ -17,7 +17,9 @@ export async function runCase(casePath: string, options: RunCaseOptions = {}): P
   const evalCase = await loadCase(casePath);
   const repoSource = options.repoOverride ?? evalCase.repoSource;
   const resolvedRepoSource = await resolveRepoSource(repoSource);
-  const repoContext = await loadRepoContext(resolvedRepoSource.localPath, resolvedRepoSource.sourceLabel);
+  const repoContext = await loadRepoContext(resolvedRepoSource.localPath, resolvedRepoSource.sourceLabel, {
+    ignoreGlobs: evalCase.ignoreGlobs,
+  });
   const responses = await loadResponses(evalCase.responses);
   if (options.provider) {
     const provider = createProvider(options.provider);

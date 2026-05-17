@@ -10,6 +10,7 @@ interface RawCase {
   repoRef?: unknown;
   task?: unknown;
   expectedFiles?: unknown;
+  ignoreGlobs?: unknown;
   rubric?: unknown;
   responses?: unknown;
 }
@@ -43,6 +44,7 @@ export async function loadCase(casePath: string): Promise<EvalCase> {
   const repoSource = readRepoSource(raw, caseDir, errors);
   const task = requireString(raw.task, "task", errors);
   const expectedFiles = readStringArray(raw.expectedFiles, "expectedFiles", errors, []);
+  const ignoreGlobs = readStringArray(raw.ignoreGlobs, "ignoreGlobs", errors, []);
   const rubric = readRubric(raw.rubric, errors);
   const responses = await readResponses(raw.responses, caseDir, errors);
 
@@ -56,6 +58,7 @@ export async function loadCase(casePath: string): Promise<EvalCase> {
     repoSource,
     task,
     expectedFiles,
+    ignoreGlobs,
     rubric,
     responses,
     casePath: resolvedCasePath,

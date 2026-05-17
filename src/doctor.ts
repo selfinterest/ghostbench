@@ -172,6 +172,7 @@ async function checkAssessment(root: string): Promise<{ check: DoctorCheck; repo
       appBrief: assessmentCase.appBrief,
       briefSource: path.relative(root, casePath),
       expectedAreas: assessmentCase.expectedAreas,
+      ignoreGlobs: assessmentCase.ignoreGlobs,
       title: assessmentCase.title,
       id: assessmentCase.id,
       policy: "check",

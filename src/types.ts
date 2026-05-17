@@ -4,6 +4,7 @@ export interface EvalCase {
   repoSource: RepoSource;
   task: string;
   expectedFiles: string[];
+  ignoreGlobs: string[];
   rubric: RubricItem[];
   responses: CaseResponse[];
   casePath: string;
@@ -39,6 +40,7 @@ export interface RepoContext {
   repoPath: string;
   repoSource: string;
   exists: boolean;
+  ignoreGlobs: string[];
   files: RepoFile[];
   warnings: string[];
   totalEligibleFiles: number;
@@ -113,6 +115,7 @@ export interface AssessmentCase {
   appBrief: string;
   repoSource?: RepoSource;
   expectedAreas: string[];
+  ignoreGlobs: string[];
   casePath: string;
   caseDir: string;
 }
