@@ -95,6 +95,8 @@ export interface RunResult {
 
 export type ExecutionPolicy = "inspect" | "check" | "sandboxed" | "trusted";
 
+export type ReportFormat = "markdown" | "json";
+
 export type ReadinessDimensionId =
   | "product-coherence"
   | "runtime-health"

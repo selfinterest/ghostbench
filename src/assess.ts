@@ -14,6 +14,7 @@ import { detectFrameworkSignals, readScriptInventory, runExecutionChecks } from 
 import type {
   AssessmentCase,
   ExecutionPolicy,
+  ReportFormat,
   ReadinessAssessment,
 } from "./types.js";
 import { writeReadinessReport } from "./report.js";
@@ -27,6 +28,7 @@ export interface AssessOptions {
   id?: string;
   policy?: ExecutionPolicy;
   provider?: ProviderOptions;
+  reportFormat?: ReportFormat;
 }
 
 export async function assessRepository(options: AssessOptions): Promise<ReadinessAssessment> {
@@ -102,7 +104,7 @@ export async function assessRepository(options: AssessOptions): Promise<Readines
     warnings,
   };
 
-  const reportPath = await writeReadinessReport(partial);
+  const reportPath = await writeReadinessReport(partial, options.reportFormat);
   return { ...partial, reportPath };
 }
 

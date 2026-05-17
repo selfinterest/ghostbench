@@ -1,0 +1,9 @@
+{
+  "id": "ghostbench-readiness",
+  "title": "Ghostbench readiness assessment",
+  "repoPath": "../",
+  "appBrief": "Ghostbench is a performance testing tool for evaluating the capabilities of software applications under various load conditions.",
+  "expectedAreas": [
+    "src"
+  ]
+}

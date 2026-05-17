@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { EvalCase, Judgment, ReadinessAssessment, RepoContext, RunResult } from "./types.js";
+import type { EvalCase, Judgment, ReadinessAssessment, RepoContext, ReportFormat, RunResult } from "./types.js";
 
 export async function writeMarkdownReport(
   evalCase: EvalCase,
@@ -60,13 +60,23 @@ export function renderConsoleSummary(result: RunResult, mode: "run" | "compare")
 
 export async function writeReadinessReport(
   assessment: Omit<ReadinessAssessment, "reportPath">,
+  format: ReportFormat = "markdown",
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const reportsDir = path.resolve("reports");
-  const reportPath = path.join(reportsDir, `${assessment.id}-${timestamp}.md`);
+  const extension = format === "json" ? "json" : "md";
+  const reportPath = path.join(reportsDir, `${assessment.id}-${timestamp}.${extension}`);
   await mkdir(reportsDir, { recursive: true });
-  await writeFile(reportPath, renderReadinessMarkdown(assessment), "utf8");
+  const content =
+    format === "json"
+      ? renderReadinessJson({ ...assessment, reportPath })
+      : renderReadinessMarkdown(assessment);
+  await writeFile(reportPath, content, "utf8");
   return reportPath;
+}
+
+export function renderReadinessJson(assessment: ReadinessAssessment): string {
+  return `${JSON.stringify(assessment, null, 2)}\n`;
 }
 
 export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): string {
