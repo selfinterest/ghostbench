@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { loadRepoContext } from "./loadRepoContext.js";
+import { createProvider, type ProviderOptions } from "./providers/index.js";
 import type {
   AssessmentCase,
   DimensionScore,
@@ -37,6 +38,7 @@ export interface AssessOptions {
   title?: string;
   id?: string;
   policy?: ExecutionPolicy;
+  provider?: ProviderOptions;
 }
 
 export async function assessRepository(options: AssessOptions): Promise<ReadinessAssessment> {
@@ -68,6 +70,26 @@ export async function assessRepository(options: AssessOptions): Promise<Readines
   const blockingConcerns = findBlockingConcerns(repoContext, scriptInventory, executionChecks, concerns, options.appBrief);
   const verdict = readinessVerdict(score, blockingConcerns, warnings, repoContext.exists);
   const remediationGuidance = buildRemediationGuidance(dimensions, blockingConcerns, executionChecks, scriptInventory);
+  const providerReview = options.provider
+    ? await createProvider(options.provider).generateReadinessReview({
+        model: options.provider.model,
+        title: options.title ?? `Readiness assessment for ${path.basename(repoContext.repoPath)}`,
+        appBrief: options.appBrief,
+        repoPath: repoContext.repoPath,
+        briefSource: options.briefSource,
+        executionPolicy,
+        repoContext,
+        expectedAreas: options.expectedAreas ?? [],
+        frameworkSignals,
+        scriptInventory,
+        executionChecks,
+        dimensions,
+        deterministicScore: score,
+        deterministicVerdict: verdict,
+        deterministicConcerns: concerns,
+        deterministicEvidence: evidence,
+      })
+    : undefined;
 
   const partial: Omit<ReadinessAssessment, "reportPath"> = {
     id: options.id ?? slugify(path.basename(repoContext.repoPath) || "assessment"),
@@ -88,6 +110,7 @@ export async function assessRepository(options: AssessOptions): Promise<Readines
     concerns,
     blockingConcerns,
     remediationGuidance,
+    ...(providerReview ? { providerReview } : {}),
     warnings,
   };
 

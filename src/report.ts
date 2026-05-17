@@ -75,6 +75,9 @@ export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): 
   lines.push(`Repo: ${assessment.repoPath}`);
   lines.push(`Verdict: ${assessment.verdict} (${assessment.score}/10)`);
   lines.push(`Policy: ${assessment.executionPolicy}`);
+  if (assessment.providerReview) {
+    lines.push(`Provider review: ${assessment.providerReview.provider}:${assessment.providerReview.model}`);
+  }
   lines.push(`Report: ${path.relative(process.cwd(), assessment.reportPath)}`);
 
   if (assessment.warnings.length > 0) {
@@ -106,6 +109,17 @@ export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): 
   if (assessment.remediationGuidance.length > 0) {
     lines.push("");
     lines.push(`Next fix: ${assessment.remediationGuidance[0]}`);
+  }
+
+  if (assessment.providerReview) {
+    lines.push("");
+    lines.push(`OpenAI summary: ${assessment.providerReview.summary || "No summary returned."}`);
+    if (assessment.providerReview.concerns[0]) {
+      lines.push(`OpenAI concern: ${assessment.providerReview.concerns[0]}`);
+    }
+    if (assessment.providerReview.recommendations[0]) {
+      lines.push(`OpenAI recommendation: ${assessment.providerReview.recommendations[0]}`);
+    }
   }
 
   return lines.join("\n");
@@ -215,6 +229,9 @@ function renderReadinessMarkdown(assessment: Omit<ReadinessAssessment, "reportPa
   lines.push(`- Repo path: \`${assessment.repoPath}\``);
   lines.push(`- Brief source: \`${assessment.briefSource}\``);
   lines.push(`- Execution policy: \`${assessment.executionPolicy}\``);
+  if (assessment.providerReview) {
+    lines.push(`- Provider review: \`${assessment.providerReview.provider}:${assessment.providerReview.model}\``);
+  }
   lines.push(`- Repo files scanned: ${assessment.repoContext.scannedFiles}/${assessment.repoContext.totalEligibleFiles}`);
   lines.push("");
 
@@ -303,6 +320,30 @@ function renderReadinessMarkdown(assessment: Omit<ReadinessAssessment, "reportPa
   lines.push("");
   appendBullets(lines, assessment.remediationGuidance);
   lines.push("");
+
+  if (assessment.providerReview) {
+    lines.push("## Provider-Assisted Review");
+    lines.push("");
+    lines.push(`- Provider: \`${assessment.providerReview.provider}\``);
+    lines.push(`- Model: \`${assessment.providerReview.model}\``);
+    lines.push("");
+    lines.push("### Summary");
+    lines.push("");
+    lines.push(assessment.providerReview.summary || "_No summary returned._");
+    lines.push("");
+    lines.push("### Evidence");
+    lines.push("");
+    appendBullets(lines, assessment.providerReview.evidence);
+    lines.push("");
+    lines.push("### Concerns");
+    lines.push("");
+    appendBullets(lines, assessment.providerReview.concerns);
+    lines.push("");
+    lines.push("### Recommendations");
+    lines.push("");
+    appendBullets(lines, assessment.providerReview.recommendations);
+    lines.push("");
+  }
 
   lines.push("## Repo Context Summary");
   lines.push("");

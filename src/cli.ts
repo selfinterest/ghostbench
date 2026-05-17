@@ -7,6 +7,7 @@ import { loadRepoContext } from "./loadRepoContext.js";
 import { renderConsoleSummary, renderReadinessConsoleSummary } from "./report.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
 import type { ExecutionPolicy } from "./types.js";
+import type { ProviderOptions } from "./providers/index.js";
 
 async function main(): Promise<void> {
   const [, , command, ...commandArgs] = process.argv;
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   pnpm ghostbench assess <repoPath> --brief <text> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --brief-file <path> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
+  pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
   pnpm ghostbench run <casePath> [--provider openai --model <model>]
   pnpm ghostbench compare <casePath> [--repo-url <url>] [--repo-ref <ref>]
@@ -60,6 +62,8 @@ interface CliAssessOptions {
   briefFile?: string;
   casePath?: string;
   policy: ExecutionPolicy;
+  provider?: "openai";
+  model?: string;
 }
 
 async function parseAssessArgs(args: string[]): Promise<{
@@ -70,6 +74,7 @@ async function parseAssessArgs(args: string[]): Promise<{
   title: string;
   id: string;
   policy: ExecutionPolicy;
+  provider?: ProviderOptions;
 }> {
   const [repoArg, ...rest] = args;
   if (!repoArg) {
@@ -115,6 +120,27 @@ async function parseAssessArgs(args: string[]): Promise<{
       index += 1;
       continue;
     }
+    if (arg === "--provider") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--provider requires a value");
+      }
+      if (value !== "openai") {
+        throw new Error(`Unsupported provider: ${value}`);
+      }
+      options.provider = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--model") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--model requires a value");
+      }
+      options.model = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown option: ${arg}`);
   }
 
@@ -122,6 +148,14 @@ async function parseAssessArgs(args: string[]): Promise<{
   if (briefSources.length !== 1) {
     throw new Error("Provide exactly one of --brief, --brief-file, or --case");
   }
+  if (options.provider && !options.model) {
+    throw new Error("--provider openai requires --model <model>");
+  }
+  if (options.model && !options.provider) {
+    throw new Error("--model requires --provider openai");
+  }
+
+  const provider = options.provider && options.model ? { provider: options.provider, model: options.model } satisfies ProviderOptions : undefined;
 
   if (options.casePath) {
     const assessmentCase = await loadAssessmentCase(options.casePath);
@@ -138,6 +172,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       title: assessmentCase.title,
       id: assessmentCase.id,
       policy: options.policy,
+      provider,
     };
   }
 
@@ -152,6 +187,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
       id: slugify(path.basename(resolvedRepoPath)),
       policy: options.policy,
+      provider,
     };
   }
 
@@ -164,6 +200,7 @@ async function parseAssessArgs(args: string[]): Promise<{
     title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
     id: slugify(path.basename(resolvedRepoPath)),
     policy: options.policy,
+    provider,
   };
 }
 
