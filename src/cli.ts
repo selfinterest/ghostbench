@@ -6,6 +6,7 @@ import { githubRepoOverride, runCase } from "./runCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
 import { renderConsoleSummary, renderReadinessConsoleSummary, renderReadinessJson } from "./report.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
+import { renderDoctorSummary, runDoctor } from "./doctor.js";
 import type { ExecutionPolicy, ReportFormat } from "./types.js";
 import type { ProviderOptions } from "./providers/index.js";
 
@@ -21,6 +22,18 @@ async function main(): Promise<void> {
           ? renderReadinessJson(assessment).trimEnd()
           : renderReadinessConsoleSummary(assessment),
       );
+      return;
+    }
+
+    if (command === "doctor") {
+      if (commandArgs.length > 0) {
+        throw new Error("Usage: pnpm ghostbench doctor");
+      }
+      const result = await runDoctor();
+      console.log(renderDoctorSummary(result));
+      if (result.checks.some((check) => check.status === "fail")) {
+        process.exitCode = 1;
+      }
       return;
     }
 
@@ -50,6 +63,7 @@ async function main(): Promise<void> {
   pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> --output json
   pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
+  pnpm ghostbench doctor
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
   pnpm ghostbench run <casePath> [--provider openai --model <model>]
   pnpm ghostbench compare <casePath> [--repo-url <url>] [--repo-ref <ref>]

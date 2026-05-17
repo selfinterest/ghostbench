@@ -32,6 +32,14 @@ Emit a machine-readable JSON assessment and write a JSON report:
 pnpm ghostbench assess . --case cases/inventory-desk-readiness.json --policy check --output json
 ```
 
+Run a self-assessment of the Ghostbench checkout:
+
+```bash
+pnpm ghostbench doctor
+```
+
+`doctor` checks package scripts, the README, agent instructions, report ignore rules, fixture repositories, check-policy assessment, and OpenAI provider safety.
+
 Use `--policy inspect` for static-only evaluation. Use `--policy check` to run declared typecheck, build, and test scripts only when dependencies are already present:
 
 ```bash

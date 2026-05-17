@@ -2,7 +2,7 @@
   "id": "ghostbench-readiness",
   "title": "Ghostbench readiness assessment",
   "repoPath": "../",
-  "appBrief": "Ghostbench is a performance testing tool for evaluating the capabilities of software applications under various load conditions.",
+  "appBrief": "Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents understand a repository before proposing changes.",
   "expectedAreas": [
     "src"
   ]
