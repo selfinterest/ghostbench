@@ -14,7 +14,7 @@ import {
 import { compareReadinessAssessments, hasReadinessRegression, loadBaselineAssessment } from "./regression.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
 import { renderDoctorSummary, runDoctor } from "./doctor.js";
-import type { ExecutionPolicy, ReportFormat } from "./types.js";
+import type { ExecutionPolicy, RepoSource, ReportFormat } from "./types.js";
 import type { ProviderOptions } from "./providers/index.js";
 
 async function main(): Promise<void> {
@@ -79,10 +79,12 @@ async function main(): Promise<void> {
 
     console.log(`Usage:
   pnpm ghostbench assess <repoPath> --brief <text> [--policy inspect|check]
+  pnpm ghostbench assess --repo-url <url> [--repo-ref <ref>] --brief <text> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --brief-file <path> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
-  pnpm ghostbench assess <repoPath> --case <casePath> --output json
-  pnpm ghostbench assess <repoPath> --case <casePath> --baseline <assessment.json>
+  pnpm ghostbench assess --case <casePath> [--policy inspect|check]
+  pnpm ghostbench assess [<repoPath>] --case <casePath> --output json
+  pnpm ghostbench assess [<repoPath>] --case <casePath> --baseline <assessment.json>
   pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
   pnpm ghostbench doctor
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
@@ -106,10 +108,13 @@ interface CliAssessOptions {
   model?: string;
   output: ReportFormat;
   baselinePath?: string;
+  repoUrl?: string;
+  repoRef?: string;
 }
 
 async function parseAssessArgs(args: string[]): Promise<{
-  repoPath: string;
+  repoPath?: string;
+  repoSource?: RepoSource;
   appBrief: string;
   briefSource: string;
   expectedAreas: string[];
@@ -121,10 +126,8 @@ async function parseAssessArgs(args: string[]): Promise<{
   reportFormat: ReportFormat;
   baselinePath?: string;
 }> {
-  const [repoArg, ...rest] = args;
-  if (!repoArg) {
-    throw new Error("Usage: pnpm ghostbench assess <repoPath> --brief <text>");
-  }
+  const repoArg = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
+  const rest = repoArg ? args.slice(1) : args;
 
   const options: CliAssessOptions = { repoPath: repoArg, policy: "inspect", output: "markdown" };
   for (let index = 0; index < rest.length; index += 1) {
@@ -195,6 +198,24 @@ async function parseAssessArgs(args: string[]): Promise<{
       index += 1;
       continue;
     }
+    if (arg === "--repo-url") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--repo-url requires a value");
+      }
+      options.repoUrl = value;
+      index += 1;
+      continue;
+    }
+    if (arg === "--repo-ref") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--repo-ref requires a value");
+      }
+      options.repoRef = value;
+      index += 1;
+      continue;
+    }
     if (arg === "--model") {
       const value = rest[index + 1];
       if (!value) {
@@ -217,18 +238,25 @@ async function parseAssessArgs(args: string[]): Promise<{
   if (options.model && !options.provider) {
     throw new Error("--model requires --provider openai");
   }
+  if (options.repoRef && !options.repoUrl) {
+    throw new Error("--repo-ref requires --repo-url");
+  }
+  if (options.repoUrl && options.repoPath && options.repoPath !== ".") {
+    throw new Error("Use either <repoPath> or --repo-url, not both");
+  }
 
   const provider = options.provider && options.model ? { provider: options.provider, model: options.model } satisfies ProviderOptions : undefined;
+  const cliRepoSource = options.repoUrl
+    ? githubRepoOverride(options.repoUrl, options.repoRef)
+    : options.repoPath && options.repoPath !== "."
+      ? ({ type: "local", path: path.resolve(options.repoPath) } satisfies RepoSource)
+      : undefined;
 
   if (options.casePath) {
     const assessmentCase = await loadAssessmentCase(options.casePath);
+    const repoSource = cliRepoSource ?? assessmentCase.repoSource ?? { type: "local", path: path.resolve(options.repoPath ?? ".") };
     return {
-      repoPath:
-        options.repoPath && options.repoPath !== "."
-          ? path.resolve(options.repoPath)
-          : assessmentCase.repoSource?.type === "local"
-            ? assessmentCase.repoSource.path
-            : path.resolve(options.repoPath ?? "."),
+      repoSource,
       appBrief: assessmentCase.appBrief,
       briefSource: path.resolve(options.casePath),
       expectedAreas: assessmentCase.expectedAreas,
@@ -243,16 +271,16 @@ async function parseAssessArgs(args: string[]): Promise<{
   }
 
   if (options.briefFile) {
+    const repoSource = cliRepoSource ?? localRepoSourceOrThrow(options.repoPath);
     const resolvedBriefFile = path.resolve(options.briefFile);
-    const resolvedRepoPath = path.resolve(repoArg);
     return {
-      repoPath: resolvedRepoPath,
+      repoSource,
       appBrief: (await readFile(resolvedBriefFile, "utf8")).trim(),
       briefSource: resolvedBriefFile,
       expectedAreas: [],
       ignoreGlobs: [],
-      title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
-      id: slugify(path.basename(resolvedRepoPath)),
+      title: `Readiness assessment for ${repoSourceName(repoSource)}`,
+      id: slugify(repoSourceName(repoSource)),
       policy: options.policy,
       provider,
       reportFormat: options.output,
@@ -260,20 +288,35 @@ async function parseAssessArgs(args: string[]): Promise<{
     };
   }
 
-  const resolvedRepoPath = path.resolve(repoArg);
+  const repoSource = cliRepoSource ?? localRepoSourceOrThrow(options.repoPath);
   return {
-    repoPath: resolvedRepoPath,
+    repoSource,
     appBrief: options.brief ?? "",
     briefSource: "cli",
     expectedAreas: [],
     ignoreGlobs: [],
-    title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
-    id: slugify(path.basename(resolvedRepoPath)),
+    title: `Readiness assessment for ${repoSourceName(repoSource)}`,
+    id: slugify(repoSourceName(repoSource)),
     policy: options.policy,
     provider,
     reportFormat: options.output,
     baselinePath: options.baselinePath,
   };
+}
+
+function localRepoSourceOrThrow(repoPath: string | undefined): RepoSource {
+  if (!repoPath) {
+    throw new Error("Usage: pnpm ghostbench assess <repoPath> --brief <text>");
+  }
+  return { type: "local", path: path.resolve(repoPath) };
+}
+
+function repoSourceName(repoSource: RepoSource): string {
+  if (repoSource.type === "local") {
+    return path.basename(repoSource.path) || "assessment";
+  }
+  const withoutGit = repoSource.url.replace(/\.git$/i, "");
+  return withoutGit.split("/").filter(Boolean).at(-1) ?? "assessment";
 }
 
 function parseExecutionPolicy(value: string): ExecutionPolicy {

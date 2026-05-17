@@ -56,6 +56,14 @@ _Avoid_: Supported stack, target framework
 A bounded snapshot of one target repository available to the judge.
 _Avoid_: Index, corpus, full repository clone
 
+**Repo Source**:
+The user-supplied local path or GitHub repository reference that Ghostbench resolves before building repo context.
+_Avoid_: Input repo, target string
+
+**Remote Repo Source**:
+A GitHub repository URL, with optional ref, that Ghostbench resolves to a local cache checkout before scanning.
+_Avoid_: API repo, online scan
+
 **Execution Check**:
 An attempted local command that observes whether a vibe-coded application repository installs, builds, typechecks, tests, or runs.
 _Avoid_: Test, CI, runtime scan
@@ -260,6 +268,9 @@ _Avoid_: Implementation plan, rewrite plan
 - A **Rubric** contains one or more **Rubric Items**.
 - An **Eval Case** may identify **Expected Areas**.
 - **Expected Files** are legacy path-shaped **Expected Areas**.
+- An **Eval Case** may identify one **Repo Source**.
+- A **Remote Repo Source** is a **Repo Source**.
+- A **Repo Source** resolves to one **Repo Context**.
 - An **Eval Case** is evaluated against one **Repo Context**.
 - A **Repo Context** may have zero or more **Warnings**.
 - An **Execution Evaluation** includes one **Repo Context**.

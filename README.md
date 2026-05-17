@@ -26,6 +26,12 @@ Assess with a reusable case file:
 pnpm ghostbench assess . --case cases/inventory-desk-readiness.json
 ```
 
+Assess a GitHub repository by cloning it into Ghostbench's user cache:
+
+```bash
+pnpm ghostbench assess --repo-url https://github.com/owner/repo.git --repo-ref main --brief "Describe the app's product intent."
+```
+
 Emit a machine-readable JSON assessment and write a JSON report:
 
 ```bash
@@ -94,6 +100,20 @@ Assessment cases are reusable JSON files:
   "repoPath": "../fixture-repos/coherent-vite-app",
   "appBrief": "Inventory Desk is an operations dashboard for tracking low-stock items, reviewing supplier status, and preparing reorder decisions.",
   "expectedAreas": ["inventory summary", "supplier status", "reorder decisions", "src"],
+  "ignoreGlobs": ["reports/**"]
+}
+```
+
+Cases may use either `repoPath` for an existing local checkout or `repoUrl` with optional `repoRef` for a GitHub repository:
+
+```json
+{
+  "id": "remote-readiness",
+  "title": "Remote readiness assessment",
+  "repoUrl": "https://github.com/owner/repo.git",
+  "repoRef": "main",
+  "appBrief": "Describe the app's product intent.",
+  "expectedAreas": ["README", "src"],
   "ignoreGlobs": ["reports/**"]
 }
 ```
