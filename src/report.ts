@@ -148,6 +148,9 @@ function renderMarkdown(
   lines.push(`- Repo source: \`${repoContext.repoSource}\``);
   lines.push(`- Resolved repo path: \`${repoContext.repoPath}\``);
   lines.push(`- Repo files scanned: ${repoContext.scannedFiles}/${repoContext.totalEligibleFiles}`);
+  if (repoContext.ignoreGlobs.length > 0) {
+    lines.push(`- Ignore globs: ${repoContext.ignoreGlobs.map((glob) => `\`${glob}\``).join(", ")}`);
+  }
   lines.push("");
   lines.push("## Task");
   lines.push("");
@@ -243,6 +246,9 @@ function renderReadinessMarkdown(assessment: Omit<ReadinessAssessment, "reportPa
     lines.push(`- Provider review: \`${assessment.providerReview.provider}:${assessment.providerReview.model}\``);
   }
   lines.push(`- Repo files scanned: ${assessment.repoContext.scannedFiles}/${assessment.repoContext.totalEligibleFiles}`);
+  if (assessment.repoContext.ignoreGlobs.length > 0) {
+    lines.push(`- Ignore globs: ${assessment.repoContext.ignoreGlobs.map((glob) => `\`${glob}\``).join(", ")}`);
+  }
   lines.push("");
 
   lines.push("## App Brief");

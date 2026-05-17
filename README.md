@@ -85,11 +85,13 @@ Assessment cases are reusable JSON files:
   "title": "Inventory Desk readiness assessment",
   "repoPath": "../fixture-repos/coherent-vite-app",
   "appBrief": "Inventory Desk is an operations dashboard for tracking low-stock items, reviewing supplier status, and preparing reorder decisions.",
-  "expectedAreas": ["inventory summary", "supplier status", "reorder decisions", "src"]
+  "expectedAreas": ["inventory summary", "supplier status", "reorder decisions", "src"],
+  "ignoreGlobs": ["reports/**"]
 }
 ```
 
 `expectedAreas` are advisory. They can name repository paths, app surfaces, workflows, or configuration areas, and they are not hidden gold labels.
+`ignoreGlobs` are optional repository-relative patterns for files that should not enter repo context, such as generated reports or logs.
 
 ## Execution Policies
 

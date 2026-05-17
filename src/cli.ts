@@ -91,6 +91,7 @@ async function parseAssessArgs(args: string[]): Promise<{
   appBrief: string;
   briefSource: string;
   expectedAreas: string[];
+  ignoreGlobs: string[];
   title: string;
   id: string;
   policy: ExecutionPolicy;
@@ -199,6 +200,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       appBrief: assessmentCase.appBrief,
       briefSource: path.resolve(options.casePath),
       expectedAreas: assessmentCase.expectedAreas,
+      ignoreGlobs: assessmentCase.ignoreGlobs,
       title: assessmentCase.title,
       id: assessmentCase.id,
       policy: options.policy,
@@ -215,6 +217,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       appBrief: (await readFile(resolvedBriefFile, "utf8")).trim(),
       briefSource: resolvedBriefFile,
       expectedAreas: [],
+      ignoreGlobs: [],
       title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
       id: slugify(path.basename(resolvedRepoPath)),
       policy: options.policy,
@@ -229,6 +232,7 @@ async function parseAssessArgs(args: string[]): Promise<{
     appBrief: options.brief ?? "",
     briefSource: "cli",
     expectedAreas: [],
+    ignoreGlobs: [],
     title: `Readiness assessment for ${path.basename(resolvedRepoPath)}`,
     id: slugify(path.basename(resolvedRepoPath)),
     policy: options.policy,
@@ -412,6 +416,7 @@ async function initCase(args: string[]): Promise<void> {
         }),
     task: "Describe the user-style repository task the agent should answer.",
     expectedFiles,
+    ignoreGlobs: ["reports/**"],
     rubric: [
       {
         id: "grounded-repo-understanding",

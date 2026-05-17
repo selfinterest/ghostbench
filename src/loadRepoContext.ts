@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { minimatch } from "minimatch";
 import type { RepoContext, RepoFile } from "./types.js";
 
 const IGNORED_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".next", "vendor"]);
@@ -32,20 +33,29 @@ const INCLUDED_FILENAMES = new Set([
 const MAX_FILES = 200;
 const MAX_BYTES_PER_FILE = 20 * 1024;
 
-export async function loadRepoContext(repoPath: string, sourceLabel = repoPath): Promise<RepoContext> {
+export interface LoadRepoContextOptions {
+  ignoreGlobs?: string[];
+}
+
+export async function loadRepoContext(
+  repoPath: string,
+  sourceLabel = repoPath,
+  options: LoadRepoContextOptions = {},
+): Promise<RepoContext> {
   const warnings: string[] = [];
   const resolvedRepoPath = path.resolve(repoPath);
+  const ignoreGlobs = options.ignoreGlobs ?? [];
 
   try {
     const repoStat = await stat(resolvedRepoPath);
     if (!repoStat.isDirectory()) {
-      return emptyContext(resolvedRepoPath, sourceLabel, [`Repo path is not a directory: ${resolvedRepoPath}`]);
+      return emptyContext(resolvedRepoPath, sourceLabel, ignoreGlobs, [`Repo path is not a directory: ${resolvedRepoPath}`]);
     }
   } catch {
-    return emptyContext(resolvedRepoPath, sourceLabel, [`Repo path does not exist: ${resolvedRepoPath}`]);
+    return emptyContext(resolvedRepoPath, sourceLabel, ignoreGlobs, [`Repo path does not exist: ${resolvedRepoPath}`]);
   }
 
-  const eligibleFiles = await collectEligibleFiles(resolvedRepoPath, warnings);
+  const eligibleFiles = await collectEligibleFiles(resolvedRepoPath, ignoreGlobs, warnings);
   const selectedFiles = eligibleFiles.slice(0, MAX_FILES);
 
   if (eligibleFiles.length > MAX_FILES) {
@@ -72,6 +82,7 @@ export async function loadRepoContext(repoPath: string, sourceLabel = repoPath):
     repoPath: resolvedRepoPath,
     repoSource: sourceLabel,
     exists: true,
+    ignoreGlobs,
     files,
     warnings,
     totalEligibleFiles: eligibleFiles.length,
@@ -79,7 +90,7 @@ export async function loadRepoContext(repoPath: string, sourceLabel = repoPath):
   };
 }
 
-async function collectEligibleFiles(repoPath: string, warnings: string[]): Promise<string[]> {
+async function collectEligibleFiles(repoPath: string, ignoreGlobs: string[], warnings: string[]): Promise<string[]> {
   const files: string[] = [];
 
   async function walk(directory: string): Promise<void> {
@@ -95,14 +106,15 @@ async function collectEligibleFiles(repoPath: string, warnings: string[]): Promi
 
     for (const entry of entries) {
       const fullPath = path.join(directory, entry.name);
+      const relativePath = normalizePath(path.relative(repoPath, fullPath));
       if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
+        if (!IGNORED_DIRS.has(entry.name) && !isIgnoredPath(relativePath, true, ignoreGlobs)) {
           await walk(fullPath);
         }
         continue;
       }
 
-      if (entry.isFile() && isIncludedFile(entry.name)) {
+      if (entry.isFile() && isIncludedFile(entry.name) && !isIgnoredPath(relativePath, false, ignoreGlobs)) {
         files.push(fullPath);
       }
     }
@@ -116,11 +128,22 @@ function isIncludedFile(fileName: string): boolean {
   return INCLUDED_EXTENSIONS.has(path.extname(fileName)) || INCLUDED_FILENAMES.has(fileName.toLowerCase());
 }
 
-function emptyContext(repoPath: string, repoSource: string, warnings: string[]): RepoContext {
+function isIgnoredPath(relativePath: string, isDirectory: boolean, ignoreGlobs: string[]): boolean {
+  return ignoreGlobs.some((glob) => {
+    const normalizedGlob = normalizePath(glob).replace(/^\.?\//, "");
+    return (
+      minimatch(relativePath, normalizedGlob, { dot: true }) ||
+      (isDirectory && minimatch(`${relativePath}/`, normalizedGlob, { dot: true }))
+    );
+  });
+}
+
+function emptyContext(repoPath: string, repoSource: string, ignoreGlobs: string[], warnings: string[]): RepoContext {
   return {
     repoPath,
     repoSource,
     exists: false,
+    ignoreGlobs,
     files: [],
     warnings,
     totalEligibleFiles: 0,

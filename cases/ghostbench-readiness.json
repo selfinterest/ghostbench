@@ -5,5 +5,8 @@
   "appBrief": "Ghostbench is a local-first TypeScript CLI for evaluating how well coding agents understand a repository before proposing changes.",
   "expectedAreas": [
     "src"
+  ],
+  "ignoreGlobs": [
+    "reports/**"
   ]
 }

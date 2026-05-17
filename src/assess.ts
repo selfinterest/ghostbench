@@ -24,6 +24,7 @@ export interface AssessOptions {
   appBrief: string;
   briefSource: string;
   expectedAreas?: string[];
+  ignoreGlobs?: string[];
   title?: string;
   id?: string;
   policy?: ExecutionPolicy;
@@ -33,7 +34,7 @@ export interface AssessOptions {
 
 export async function assessRepository(options: AssessOptions): Promise<ReadinessAssessment> {
   const executionPolicy = options.policy ?? "inspect";
-  const repoContext = await loadRepoContext(options.repoPath);
+  const repoContext = await loadRepoContext(options.repoPath, options.repoPath, { ignoreGlobs: options.ignoreGlobs ?? [] });
   const scriptInventory = readScriptInventory(repoContext);
   const frameworkSignals = detectFrameworkSignals(repoContext, scriptInventory);
   const executionChecks = await runExecutionChecks(repoContext.repoPath, executionPolicy, scriptInventory);
@@ -125,6 +126,7 @@ export async function loadAssessmentCase(casePath: string): Promise<AssessmentCa
   const title = readRequiredString(raw.title, "title", errors);
   const appBrief = readRequiredString(raw.appBrief ?? raw.task, "appBrief", errors);
   const expectedAreas = readStringArray(raw.expectedAreas ?? raw.expectedFiles, "expectedAreas", errors);
+  const ignoreGlobs = readStringArray(raw.ignoreGlobs, "ignoreGlobs", errors);
   const repoPath = typeof raw.repoPath === "string" && raw.repoPath.trim().length > 0 ? raw.repoPath.trim() : undefined;
 
   if (errors.length > 0) {
@@ -136,6 +138,7 @@ export async function loadAssessmentCase(casePath: string): Promise<AssessmentCa
     title,
     appBrief,
     expectedAreas,
+    ignoreGlobs,
     ...(repoPath ? { repoSource: { type: "local", path: path.resolve(caseDir, repoPath) } } : {}),
     casePath: resolvedCasePath,
     caseDir,
