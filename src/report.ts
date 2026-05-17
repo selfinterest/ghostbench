@@ -1,6 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { EvalCase, Judgment, ReadinessAssessment, RepoContext, ReportFormat, RunResult } from "./types.js";
+import type {
+  EvalCase,
+  Judgment,
+  ReadinessAssessment,
+  ReadinessRegression,
+  RepoContext,
+  ReportFormat,
+  RunResult,
+} from "./types.js";
 
 export async function writeMarkdownReport(
   evalCase: EvalCase,
@@ -79,6 +87,56 @@ export function renderReadinessJson(assessment: ReadinessAssessment): string {
   return `${JSON.stringify(assessment, null, 2)}\n`;
 }
 
+export function renderReadinessRegressionJson(regression: ReadinessRegression): string {
+  return `${JSON.stringify(regression, null, 2)}\n`;
+}
+
+export function renderReadinessRegressionSummary(regression: ReadinessRegression): string {
+  const lines: string[] = [];
+  const direction =
+    regression.status === "regressed"
+      ? "regressed"
+      : regression.status === "improved"
+        ? "improved"
+        : "is unchanged";
+  const scoreLine =
+    regression.status === "unchanged"
+      ? `Readiness ${direction} at ${regression.currentScore}.`
+      : `Readiness ${direction} from ${regression.previousScore} to ${regression.currentScore}.`;
+
+  lines.push(scoreLine);
+  lines.push(`Verdict: ${regression.previousVerdict} -> ${regression.currentVerdict}`);
+  lines.push(`Current report: ${path.relative(process.cwd(), regression.currentReportPath)}`);
+  if (regression.baselineReportPath) {
+    lines.push(`Baseline: ${path.relative(process.cwd(), regression.baselineReportPath)}`);
+  }
+
+  appendConcernSection(lines, "New blocking concern", regression.newBlockingConcerns.map((concern) => concern.text));
+  appendConcernSection(lines, "New concern", regression.newConcerns.map((concern) => concern.text));
+  appendConcernSection(lines, "Resolved blocking concern", regression.resolvedBlockingConcerns.map((concern) => concern.text));
+  appendConcernSection(lines, "Resolved concern", regression.resolvedConcerns.map((concern) => concern.text));
+
+  if (regression.improved.length > 0) {
+    lines.push("");
+    lines.push("Improved:");
+    for (const item of regression.improved.slice(0, 5)) {
+      const signal = item.evidence[0] ? `: ${item.evidence[0]}` : "";
+      lines.push(`- ${item.name} ${item.previousScore} -> ${item.currentScore}${signal}`);
+    }
+  }
+
+  if (regression.regressed.length > 0) {
+    lines.push("");
+    lines.push("Regressed:");
+    for (const item of regression.regressed.slice(0, 5)) {
+      const signal = item.concerns[0] ? `: ${item.concerns[0]}` : "";
+      lines.push(`- ${item.name} ${item.previousScore} -> ${item.currentScore}${signal}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): string {
   const lines: string[] = [];
   lines.push(`Assessment: ${assessment.title}`);
@@ -133,6 +191,17 @@ export function renderReadinessConsoleSummary(assessment: ReadinessAssessment): 
   }
 
   return lines.join("\n");
+}
+
+function appendConcernSection(lines: string[], heading: string, concerns: string[]): void {
+  if (concerns.length === 0) {
+    return;
+  }
+  lines.push("");
+  lines.push(`${heading}${concerns.length === 1 ? "" : "s"}:`);
+  for (const concern of concerns.slice(0, 5)) {
+    lines.push(`- ${concern}`);
+  }
 }
 
 function renderMarkdown(
