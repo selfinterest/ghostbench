@@ -4,9 +4,9 @@ import path from "node:path";
 import { assessRepository, loadAssessmentCase } from "./assess.js";
 import { githubRepoOverride, runCase } from "./runCase.js";
 import { loadRepoContext } from "./loadRepoContext.js";
-import { renderConsoleSummary, renderReadinessConsoleSummary } from "./report.js";
+import { renderConsoleSummary, renderReadinessConsoleSummary, renderReadinessJson } from "./report.js";
 import { resolveRepoSource } from "./resolveRepoSource.js";
-import type { ExecutionPolicy } from "./types.js";
+import type { ExecutionPolicy, ReportFormat } from "./types.js";
 import type { ProviderOptions } from "./providers/index.js";
 
 async function main(): Promise<void> {
@@ -16,7 +16,11 @@ async function main(): Promise<void> {
     if (command === "assess") {
       const assessmentOptions = await parseAssessArgs(commandArgs);
       const assessment = await assessRepository(assessmentOptions);
-      console.log(renderReadinessConsoleSummary(assessment));
+      console.log(
+        assessmentOptions.reportFormat === "json"
+          ? renderReadinessJson(assessment).trimEnd()
+          : renderReadinessConsoleSummary(assessment),
+      );
       return;
     }
 
@@ -44,6 +48,7 @@ async function main(): Promise<void> {
   pnpm ghostbench assess <repoPath> --brief <text> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --brief-file <path> [--policy inspect|check]
   pnpm ghostbench assess <repoPath> --case <casePath> [--policy inspect|check]
+  pnpm ghostbench assess <repoPath> --case <casePath> --output json
   pnpm ghostbench assess <repoPath> --brief <text> --provider openai --model <model>
   pnpm ghostbench run <casePath> [--repo-url <url>] [--repo-ref <ref>]
   pnpm ghostbench run <casePath> [--provider openai --model <model>]
@@ -64,6 +69,7 @@ interface CliAssessOptions {
   policy: ExecutionPolicy;
   provider?: "openai";
   model?: string;
+  output: ReportFormat;
 }
 
 async function parseAssessArgs(args: string[]): Promise<{
@@ -75,13 +81,14 @@ async function parseAssessArgs(args: string[]): Promise<{
   id: string;
   policy: ExecutionPolicy;
   provider?: ProviderOptions;
+  reportFormat: ReportFormat;
 }> {
   const [repoArg, ...rest] = args;
   if (!repoArg) {
     throw new Error("Usage: pnpm ghostbench assess <repoPath> --brief <text>");
   }
 
-  const options: CliAssessOptions = { repoPath: repoArg, policy: "inspect" };
+  const options: CliAssessOptions = { repoPath: repoArg, policy: "inspect", output: "markdown" };
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
     if (arg === "--brief") {
@@ -132,6 +139,15 @@ async function parseAssessArgs(args: string[]): Promise<{
       index += 1;
       continue;
     }
+    if (arg === "--output") {
+      const value = rest[index + 1];
+      if (!value) {
+        throw new Error("--output requires a value");
+      }
+      options.output = parseReportFormat(value);
+      index += 1;
+      continue;
+    }
     if (arg === "--model") {
       const value = rest[index + 1];
       if (!value) {
@@ -173,6 +189,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       id: assessmentCase.id,
       policy: options.policy,
       provider,
+      reportFormat: options.output,
     };
   }
 
@@ -188,6 +205,7 @@ async function parseAssessArgs(args: string[]): Promise<{
       id: slugify(path.basename(resolvedRepoPath)),
       policy: options.policy,
       provider,
+      reportFormat: options.output,
     };
   }
 
@@ -201,6 +219,7 @@ async function parseAssessArgs(args: string[]): Promise<{
     id: slugify(path.basename(resolvedRepoPath)),
     policy: options.policy,
     provider,
+    reportFormat: options.output,
   };
 }
 
@@ -209,6 +228,13 @@ function parseExecutionPolicy(value: string): ExecutionPolicy {
     return value;
   }
   throw new Error(`Unsupported execution policy: ${value}`);
+}
+
+function parseReportFormat(value: string): ReportFormat {
+  if (value === "markdown" || value === "json") {
+    return value;
+  }
+  throw new Error(`Unsupported output format: ${value}`);
 }
 
 interface CliRunOptions {

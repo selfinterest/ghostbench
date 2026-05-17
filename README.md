@@ -26,6 +26,12 @@ Assess with a reusable case file:
 pnpm ghostbench assess . --case cases/inventory-desk-readiness.json
 ```
 
+Emit a machine-readable JSON assessment and write a JSON report:
+
+```bash
+pnpm ghostbench assess . --case cases/inventory-desk-readiness.json --policy check --output json
+```
+
 Use `--policy inspect` for static-only evaluation. Use `--policy check` to run declared typecheck, build, and test scripts only when dependencies are already present:
 
 ```bash
@@ -95,6 +101,12 @@ reports/{assessmentId}-{timestamp}.md
 ```
 
 Each report includes the app brief, repo summary, warnings, framework signals, script inventory, execution checks, dimension scores, blocking concerns, evidence, concerns, and remediation guidance.
+
+Use `--output json` to print the full readiness assessment as JSON and write the durable report to:
+
+```text
+reports/{assessmentId}-{timestamp}.json
+```
 
 Generated reports are gitignored by default.
 
